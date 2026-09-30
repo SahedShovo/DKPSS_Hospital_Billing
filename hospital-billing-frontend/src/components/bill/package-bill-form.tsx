@@ -1,0 +1,99 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/card';
+import { Select } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
+import { packageApi } from '@/lib/package';
+import { billApi } from '@/lib/bill';
+import { Package } from '@/types/package.types';
+import { ApiError } from '@/lib/api';
+import { formatMoneyWithSymbol } from '@/lib/money';
+
+export function PackageBillForm({ patientId, onBack }: { patientId: number; onBack: () => void }) {
+  const router = useRouter();
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [packageId, setPackageId] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    packageApi.findActive()
+      .then(setPackages)
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'প্যাকেজ লোড করা যায়নি'))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const selected = packages.find((pkg) => String(pkg.id) === packageId);
+  const price = selected?.effectivePrice ?? selected?.packagePrice ?? '0';
+
+  async function handleSubmit() {
+    if (!packageId) {
+      setError('একটি প্যাকেজ নির্বাচন করুন');
+      return;
+    }
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const bill = await billApi.createPackage({ patientId, packageId: Number(packageId) });
+      router.push(`/bills/${bill.id}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'প্যাকেজ বিল তৈরি করা যায়নি');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-5">
+      <Card className="space-y-4 xl:col-span-2">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-gray-900">প্যাকেজ নির্বাচন</h2>
+          <button onClick={onBack} className="text-xs text-gray-500 hover:underline">← ধরন বদলান</button>
+        </div>
+        {isLoading ? <p className="text-sm text-gray-500">প্যাকেজ লোড হচ্ছে...</p> : packages.length ? (
+          <Select label="সক্রিয় প্যাকেজ" required value={packageId} onChange={(e) => setPackageId(e.target.value)}>
+            <option value="">প্যাকেজ নির্বাচন করুন</option>
+            {packages.map((pkg) => (
+              <option key={pkg.id} value={pkg.id}>{pkg.name} — {formatMoneyWithSymbol(pkg.effectivePrice ?? pkg.packagePrice ?? '0')}</option>
+            ))}
+          </Select>
+        ) : <p className="text-sm text-gray-500">কোনো সক্রিয় প্যাকেজ পাওয়া যায়নি।</p>}
+
+        {selected && (
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h3 className="font-semibold text-slate-900">{selected.name}</h3>
+              <span className="font-semibold text-teal-800">{formatMoneyWithSymbol(price)}</span>
+            </div>
+            <p className="mb-2 text-xs text-slate-500">প্যাকেজে অন্তর্ভুক্ত সেবা</p>
+            <ul className="divide-y divide-slate-200">
+              {(selected.items ?? []).map((item) => (
+                <li key={item.id} className="flex justify-between gap-3 py-2 text-sm">
+                  <span className="text-slate-700">{item.itemName}</span>
+                  <span className="shrink-0 text-slate-600">{formatMoneyWithSymbol(item.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <p className="text-xs text-slate-500">প্যাকেজের মূল্য অ্যাডমিন নির্ধারণ করেন। রিসেপশনিস্ট এটি পরিবর্তন করতে পারবেন না।</p>
+      </Card>
+
+      <Card className="xl:sticky xl:top-4 xl:self-start">
+        <h2 className="mb-3 text-sm font-medium text-gray-900">বিলের সারাংশ</h2>
+        <div className="flex justify-between border-t border-gray-200 pt-3 font-semibold">
+          <span>{selected?.name ?? 'প্যাকেজ'}</span>
+          <span>{formatMoneyWithSymbol(price)}</span>
+        </div>
+        {error && <div className="mt-3"><Alert message={error} /></div>}
+        <Button className="mt-4 w-full" onClick={handleSubmit} disabled={isSubmitting || isLoading || !selected}>
+          {isSubmitting ? 'তৈরি হচ্ছে...' : 'প্যাকেজ বিল তৈরি করুন'}
+        </Button>
+      </Card>
+    </div>
+  );
+}

@@ -1,0 +1,340 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --background: #f5f8f7;
+  --foreground: #0f172a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='submit']):not([type='button']),
+textarea,
+select {
+  color: #0f172a;
+}
+
+:root[data-theme='night'] {
+  color-scheme: dark;
+  --background: #101a1c;
+  --foreground: #e2e8f0;
+}
+
+[data-theme='night'] body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+[data-theme='night'] [class~='bg-white'],
+[data-theme='night'] [class~='bg-[#f5f8f7]'] {
+  background-color: #182528;
+}
+
+[data-theme='night'] [class~='bg-gray-50'],
+[data-theme='night'] [class~='bg-slate-50'] {
+  background-color: #1b2a2d;
+}
+
+[data-theme='night'] [class~='bg-slate-50/70'] {
+  background-color: #1b2a2d !important;
+}
+
+[data-theme='night'] [class~='bg-gray-100'],
+[data-theme='night'] [class~='bg-slate-100'] {
+  background-color: #26373a;
+}
+
+[data-theme='night'] [class~='bg-teal-50'],
+[data-theme='night'] [class~='bg-emerald-50'],
+[data-theme='night'] [class~='bg-green-50'] {
+  background-color: #123a34;
+}
+
+[data-theme='night'] [class~='bg-teal-100'],
+[data-theme='night'] [class~='bg-emerald-100'],
+[data-theme='night'] [class~='bg-green-100'] {
+  background-color: #1b4a42;
+}
+
+[data-theme='night'] [class~='bg-red-50'],
+[data-theme='night'] [class~='bg-red-100'] {
+  background-color: #482629;
+}
+
+[data-theme='night'] [class~='bg-blue-50'] {
+  background-color: #1f3445;
+}
+
+[data-theme='night'] [class~='text-slate-950'],
+[data-theme='night'] [class~='text-slate-900'],
+[data-theme='night'] [class~='text-gray-900'] {
+  color: #edf4f1;
+}
+
+[data-theme='night'] [class~='text-slate-800'],
+[data-theme='night'] [class~='text-gray-800'],
+[data-theme='night'] [class~='text-slate-700'],
+[data-theme='night'] [class~='text-gray-700'] {
+  color: #d3dfdb;
+}
+
+[data-theme='night'] [class~='text-slate-600'],
+[data-theme='night'] [class~='text-gray-600'] {
+  color: #b1c0bb;
+}
+
+[data-theme='night'] [class~='text-slate-500'],
+[data-theme='night'] [class~='text-gray-500'] {
+  color: #93a49e;
+}
+
+[data-theme='night'] [class~='text-slate-400'],
+[data-theme='night'] [class~='text-gray-400'] {
+  color: #82938e;
+}
+
+[data-theme='night'] [class~='text-teal-800'],
+[data-theme='night'] [class~='text-teal-700'],
+[data-theme='night'] [class~='text-teal-600'] {
+  color: #71d8c8;
+}
+
+[data-theme='night'] [class~='text-green-700'],
+[data-theme='night'] [class~='text-emerald-700'] {
+  color: #6ee7b7;
+}
+
+[data-theme='night'] [class~='text-red-700'],
+[data-theme='night'] [class~='text-red-600'] {
+  color: #fca5a5;
+}
+
+[data-theme='night'] [class~='text-blue-600'] {
+  color: #93c5fd;
+}
+
+[data-theme='night'] [class~='border-gray-100'],
+[data-theme='night'] [class~='border-gray-200'],
+[data-theme='night'] [class~='border-slate-100'],
+[data-theme='night'] [class~='border-slate-200'],
+[data-theme='night'] [class~='border-gray-300'],
+[data-theme='night'] [class~='border-slate-300'] {
+  border-color: #34474a;
+}
+
+[data-theme='night'] [class~='border-teal-100'],
+[data-theme='night'] [class~='border-teal-200'] {
+  border-color: #285b53;
+}
+
+[data-theme='night'] [class~='border-red-200'] {
+  border-color: #743c40;
+}
+
+[data-theme='night'] input:not([type='checkbox']):not([type='radio']):not([type='submit']):not([type='button']),
+[data-theme='night'] textarea,
+[data-theme='night'] select {
+  border-color: #405457 !important;
+  background-color: #142124 !important;
+  color: #edf4f1 !important;
+}
+
+[data-theme='night'] input::placeholder,
+[data-theme='night'] textarea::placeholder {
+  color: #82938e !important;
+}
+
+[data-theme='night'] [class~='hover:bg-gray-50']:hover,
+[data-theme='night'] [class~='hover:bg-slate-50']:hover {
+  background-color: #26373a;
+}
+
+[data-theme='night'] [class~='hover:bg-teal-50']:hover,
+[data-theme='night'] [class~='hover:bg-emerald-50']:hover {
+  background-color: #1b4a42;
+}
+
+[data-theme='night'] [class~='hover:bg-red-50']:hover {
+  background-color: #5a3034;
+}
+
+[data-theme='night'] .day-theme-action {
+  display: none;
+}
+
+.night-theme-action {
+  display: none;
+}
+
+[data-theme='night'] .night-theme-action {
+  display: inline;
+}
+
+/* Bill detail surfaces use a few accent shades beyond the shared night palette. */
+[data-theme='night'] .bill-detail-page .bg-gradient-to-br {
+  background-image: linear-gradient(135deg, #173431 0%, #182528 52%, #1b2a2d 100%);
+}
+
+[data-theme='night'] .bill-detail-page [class~='bg-white/80'] {
+  background-color: rgb(24 37 40 / 88%);
+}
+
+[data-theme='night'] .bill-detail-page [class~='bg-slate-50/50'],
+[data-theme='night'] .bill-detail-page [class~='bg-slate-50/70'] {
+  background-color: #1b2a2d;
+}
+
+[data-theme='night'] .bill-detail-page [class~='bg-amber-50/70'] {
+  background-color: #342f20;
+}
+
+[data-theme='night'] .bill-detail-page [class~='bg-amber-100'] {
+  background-color: #514322;
+}
+
+[data-theme='night'] .bill-detail-page [class~='bg-rose-50'] {
+  background-color: #3b282d;
+}
+
+[data-theme='night'] .bill-detail-page [class~='text-emerald-800'],
+[data-theme='night'] .bill-detail-page [class~='text-amber-800'] {
+  color: #f0cf78;
+}
+
+[data-theme='night'] .bill-detail-page [class~='text-rose-700'] {
+  color: #f3a4b2;
+}
+
+[data-theme='night'] .bill-detail-page [class~='border-amber-200'] {
+  border-color: #725f30;
+}
+
+[data-theme='night'] .bill-detail-page [class~='border-emerald-200'] {
+  border-color: #285b53;
+}
+
+[data-theme='night'] .bill-detail-page [class~='hover:bg-slate-50/70']:hover {
+  background-color: #223437;
+}
+
+[data-theme='night'] .bill-detail-page [class~='hover:text-teal-800']:hover {
+  color: #8de0d2;
+}
+
+[data-theme='night'] .admission-detail-page .bg-gradient-to-br {
+  background-image: linear-gradient(135deg, #173431 0%, #182528 52%, #1b2a2d 100%);
+}
+
+[data-theme='night'] .admission-detail-page [class~='bg-white/80'] {
+  background-color: rgb(24 37 40 / 88%);
+}
+
+[data-theme='night'] .admission-detail-page [class~='bg-slate-50/50'],
+[data-theme='night'] .admission-detail-page [class~='bg-slate-50/70'] {
+  background-color: #1b2a2d;
+}
+
+[data-theme='night'] .admission-detail-page [class~='bg-amber-50/70'] {
+  background-color: #342f20;
+}
+
+[data-theme='night'] .admission-detail-page [class~='bg-amber-100'] {
+  background-color: #514322;
+}
+
+[data-theme='night'] .admission-detail-page [class~='text-emerald-800'],
+[data-theme='night'] .admission-detail-page [class~='text-amber-800'] {
+  color: #f0cf78;
+}
+
+[data-theme='night'] .admission-detail-page [class~='border-amber-200'] {
+  border-color: #725f30;
+}
+
+[data-theme='night'] .admission-detail-page [class~='hover:bg-slate-50/70']:hover {
+  background-color: #223437;
+}
+
+[data-theme='night'] .admission-detail-page [class~='hover:text-teal-800']:hover {
+  color: #8de0d2;
+}
+
+[data-theme='night'] .receipt-document [class~='bg-teal-50/70'] {
+  background-color: #123a34;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+  body * {
+    visibility: hidden;
+  }
+  #print-area, #print-area * {
+    visibility: visible;
+  }
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+
+  @page receipt-two-up {
+    size: A4 portrait;
+    margin: 7mm;
+  }
+
+  .receipt-document {
+    page: receipt-two-up;
+    width: 100%;
+    max-width: none;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-size: 9pt;
+  }
+
+  .receipt-copy {
+    position: relative;
+    box-sizing: border-box;
+    height: calc((297mm - 14mm) / 2);
+    overflow: hidden;
+    padding: 4mm 6mm;
+  }
+
+  .receipt-copy:first-child {
+    border-bottom: 1px dashed #64748b;
+  }
+
+  .receipt-copy:first-child::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    padding: 0 2mm;
+    background: white;
+    color: #64748b;
+    content: '✂ কাটার রেখা';
+    font-size: 7pt;
+  }
+
+  .receipt-heading h1 {
+    font-size: 12pt;
+  }
+
+}

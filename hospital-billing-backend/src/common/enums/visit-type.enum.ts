@@ -1,0 +1,5 @@
+export enum VisitType {
+  CONSULTANT = 'CONSULTANT',
+  DUTY_DOCTOR = 'DUTY_DOCTOR',
+  SURGEON = 'SURGEON',
+}
