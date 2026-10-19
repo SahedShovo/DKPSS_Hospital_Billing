@@ -66,6 +66,19 @@ export class PatientService {
   }
 
   async search(dto: SearchPatientDto) {
+    const query = dto.query?.trim();
+    if (query) {
+      const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
+      return this.db
+        .select()
+        .from(patients)
+        .where(or(
+          ilike(patients.name, pattern),
+          ilike(patients.phone, pattern),
+          ilike(patients.patientCode, pattern),
+        ))
+        .orderBy(patients.id);
+    }
     if (dto.patientCode) {
       return this.db.select().from(patients).where(eq(patients.patientCode, dto.patientCode));
     }

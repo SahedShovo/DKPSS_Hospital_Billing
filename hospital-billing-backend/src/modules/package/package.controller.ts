@@ -18,7 +18,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { CurrentUser, CurrentUserPayload } from '../../common/decorators/current-user.decorator';
-import { PageQueryDto } from '../../common/dto/page-query.dto';
+import { PackagePageDto } from './dto/package-page.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('packages')
@@ -38,7 +38,7 @@ export class PackageController {
   }
 
   @Get('page')
-  findPage(@Query() query: PageQueryDto) {
+  findPage(@Query() query: PackagePageDto) {
     return this.packageService.findPage(query);
   }
 

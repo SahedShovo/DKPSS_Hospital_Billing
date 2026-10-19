@@ -12,14 +12,14 @@ type DiscountMode = 'NONE' | 'BILL' | 'ITEM';
 interface DiscountModalProps {
   billId: number;
   currentMode: DiscountMode;
-  currentPercent: string;
+  currentAmount: string;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function DiscountModal({ billId, currentMode, currentPercent, onClose, onSuccess }: DiscountModalProps) {
+export function DiscountModal({ billId, currentMode, currentAmount, onClose, onSuccess }: DiscountModalProps) {
   const [mode, setMode] = useState<DiscountMode>(currentMode === 'ITEM' ? 'BILL' : currentMode);
-  const [percent, setPercent] = useState(currentPercent);
+  const [amount, setAmount] = useState(currentAmount);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -28,7 +28,7 @@ export function DiscountModal({ billId, currentMode, currentPercent, onClose, on
     setError(null);
     setIsSubmitting(true);
     try {
-      await billApi.applyDiscount(billId, mode, mode === 'BILL' ? percent : '0');
+      await billApi.applyDiscount(billId, mode, mode === 'BILL' ? amount : '0');
       onSuccess();
       onClose();
     } catch (err) {
@@ -61,20 +61,19 @@ export function DiscountModal({ billId, currentMode, currentPercent, onClose, on
                 mode === 'BILL' ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700'
               }`}
             >
-              পুরো বিলের %
+              পুরো বিলের নির্দিষ্ট টাকা
             </button>
           </div>
 
           {mode === 'BILL' && (
             <Input
-              label="ছাড়ের শতাংশ"
+              label="ছাড়ের পরিমাণ (৳)"
               type="number"
               step="0.01"
               min="0"
-              max="100"
               required
-              value={percent}
-              onChange={(e) => setPercent(e.target.value)}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
             />
           )}
 

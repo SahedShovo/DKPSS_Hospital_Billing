@@ -6,5 +6,6 @@ export enum ItemType {
   OT = 'OT',
   PACKAGE = 'PACKAGE',
   MEDICINE = 'MEDICINE',
+  EMERGENCY = 'EMERGENCY',
   OTHER = 'OTHER',
 }

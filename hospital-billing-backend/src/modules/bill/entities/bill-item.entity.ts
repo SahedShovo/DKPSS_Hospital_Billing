@@ -8,6 +8,7 @@ export interface BillItemEntity {
   testId: number | null;
   unitPrice: string;
   quantity: number;
+  itemDiscountValue: string;
   itemDiscountPercent: string;
   amount: string;
   discountAmount: string;

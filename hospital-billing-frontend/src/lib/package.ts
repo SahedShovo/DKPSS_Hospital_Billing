@@ -3,7 +3,11 @@ import { Package, CreatePackageInput } from '@/types/package.types';
 
 export const packageApi = {
   findAll: () => api.get<Package[]>('/packages'),
-  findPage: (page: number, pageSize = 10) => api.get<{ items: Package[]; total: number; page: number; pageSize: number }>(`/packages/page?page=${page}&pageSize=${pageSize}`),
+  findPage: (page: number, pageSize = 10, search = '') => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (search) params.set('search', search);
+    return api.get<{ items: Package[]; total: number; page: number; pageSize: number }>(`/packages/page?${params}`);
+  },
   findActive: () => api.get<Package[]>('/packages/active'),
   findOne: (id: number) => api.get<Package>(`/packages/${id}`),
   create: (input: CreatePackageInput) => api.post<Package>('/packages', input),

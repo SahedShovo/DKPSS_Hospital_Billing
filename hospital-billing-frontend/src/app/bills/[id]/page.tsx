@@ -94,7 +94,11 @@ export default function BillDetailPage() {
       ? 'Diagnostic'
       : bill.billType === 'PACKAGE'
         ? 'Package'
-        : 'Admission';
+        : bill.billType === 'EMERGENCY'
+          ? 'Emergency'
+          : bill.billType === 'MEDICINE'
+            ? 'Medicine'
+            : 'Admission';
   const createdAt = new Date(bill.createdAt).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
@@ -293,7 +297,7 @@ export default function BillDetailPage() {
         <DiscountModal
           billId={bill.id}
           currentMode={bill.discountMode}
-          currentPercent={bill.discountPercent}
+          currentAmount={bill.discountAmount}
           onClose={() => setModal(null)}
           onSuccess={() => { showToast('Discount আপডেট হয়েছে'); load(); }}
         />

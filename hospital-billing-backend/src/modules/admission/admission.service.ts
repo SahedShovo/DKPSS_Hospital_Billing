@@ -65,6 +65,7 @@ export class AdmissionService {
           billType: BillType.ADMISSION,
           discountMode: 'NONE',
           grossAmount: grossAmount.toDb(),
+          billDiscountValue: '0.00',
           discountPercent: '0.00',
           discountAmount: '0.00',
           netAmount: grossAmount.toDb(),

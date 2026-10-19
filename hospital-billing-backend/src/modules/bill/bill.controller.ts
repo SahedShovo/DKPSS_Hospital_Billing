@@ -11,6 +11,9 @@ import { Role } from '../../common/enums/role.enum';
 import { DeleteBillsRangeDto } from './dto/delete-bills-range.dto';
 import { BillPageDto } from './dto/bill-page.dto';
 import { CreatePackageBillDto } from './dto/create-package-bill.dto';
+import { CreateManualBillDto } from './dto/create-manual-bill.dto';
+import { BillType } from '../../common/enums/bill-type.enum';
+import { ItemType } from '../../common/enums/item-type.enum';
 
 @UseGuards(JwtAuthGuard)
 @Controller('bills')
@@ -30,6 +33,16 @@ export class BillController {
   @Post('package')
   createPackage(@Body() dto: CreatePackageBillDto, @CurrentUser() user: CurrentUserPayload) {
     return this.billService.createPackageBill(dto, user.id);
+  }
+
+  @Post('emergency')
+  createEmergency(@Body() dto: CreateManualBillDto, @CurrentUser() user: CurrentUserPayload) {
+    return this.billService.createManualBill(dto, BillType.EMERGENCY, ItemType.EMERGENCY, user.id);
+  }
+
+  @Post('medicine')
+  createMedicine(@Body() dto: CreateManualBillDto, @CurrentUser() user: CurrentUserPayload) {
+    return this.billService.createManualBill(dto, BillType.MEDICINE, ItemType.MEDICINE, user.id);
   }
 
   @Get()

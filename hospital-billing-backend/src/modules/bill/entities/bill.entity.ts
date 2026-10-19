@@ -5,6 +5,7 @@ export interface BillEntity {
   billType: string;
   discountMode: string;
   grossAmount: string;
+  billDiscountValue: string;
   discountPercent: string;
   discountAmount: string;
   netAmount: string;

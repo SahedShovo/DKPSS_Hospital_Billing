@@ -21,11 +21,11 @@ interface LineItem {
   visitType: VisitType;
   unitPrice: string;
   quantity: string;
-  itemDiscountPercent: string;
+  itemDiscountAmount: string;
 }
 
 function emptyLine(): LineItem {
-  return { doctorId: '', visitType: 'CONSULTANT', unitPrice: '', quantity: '1', itemDiscountPercent: '0' };
+  return { doctorId: '', visitType: 'CONSULTANT', unitPrice: '', quantity: '1', itemDiscountAmount: '0' };
 }
 
 export function DoctorVisitBillForm({ patientId, onBack }: { patientId: number; onBack: () => void }) {
@@ -33,7 +33,7 @@ export function DoctorVisitBillForm({ patientId, onBack }: { patientId: number; 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [lines, setLines] = useState<LineItem[]>([emptyLine()]);
   const [discountMode, setDiscountMode] = useState<DiscountMode>('NONE');
-  const [billDiscountPercent, setBillDiscountPercent] = useState('0');
+  const [billDiscountAmount, setBillDiscountAmount] = useState('0');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -53,8 +53,8 @@ export function DoctorVisitBillForm({ patientId, onBack }: { patientId: number; 
     const next = [...lines];
     next[index] = { ...next[index], [field]: value };
     // BILL mode-এ item-level discount শূন্যই থাকবে (Backend একই নিয়ম enforce করে)
-    if (field !== 'itemDiscountPercent' && discountMode === 'BILL') {
-      next[index].itemDiscountPercent = '0';
+    if (field !== 'itemDiscountAmount' && discountMode === 'BILL') {
+      next[index].itemDiscountAmount = '0';
     }
     setLines(next);
   }
@@ -68,13 +68,10 @@ export function DoctorVisitBillForm({ patientId, onBack }: { patientId: number; 
 
   const previewDiscount =
     discountMode === 'BILL'
-      ? (previewGross * (parseFloat(billDiscountPercent) || 0)) / 100
+      ? (parseFloat(billDiscountAmount) || 0)
       : discountMode === 'ITEM'
         ? lines.reduce((sum, l) => {
-            const price = parseFloat(l.unitPrice) || 0;
-            const qty = parseInt(l.quantity, 10) || 0;
-            const pct = parseFloat(l.itemDiscountPercent) || 0;
-            return sum + (price * qty * pct) / 100;
+            return sum + (parseFloat(l.itemDiscountAmount) || 0);
           }, 0)
         : 0;
 
@@ -82,9 +79,9 @@ export function DoctorVisitBillForm({ patientId, onBack }: { patientId: number; 
 
   function handleDiscountModeChange(mode: DiscountMode) {
     setDiscountMode(mode);
-    if (mode !== 'BILL') setBillDiscountPercent('0');
+    if (mode !== 'BILL') setBillDiscountAmount('0');
     if (mode !== 'ITEM') {
-      setLines(lines.map((l) => ({ ...l, itemDiscountPercent: '0' })));
+      setLines(lines.map((l) => ({ ...l, itemDiscountAmount: '0' })));
     }
   }
 
@@ -103,13 +100,13 @@ export function DoctorVisitBillForm({ patientId, onBack }: { patientId: number; 
         visitType: l.visitType,
         unitPrice: l.unitPrice,
         quantity: parseInt(l.quantity, 10) || 1,
-        itemDiscountPercent: discountMode === 'ITEM' ? l.itemDiscountPercent : '0',
+        itemDiscountAmount: discountMode === 'ITEM' ? l.itemDiscountAmount : '0',
       }));
 
       const bill = await billApi.createDoctorVisit({
         patientId,
         discountMode,
-        discountPercent: discountMode === 'BILL' ? billDiscountPercent : '0',
+        discountAmount: discountMode === 'BILL' ? billDiscountAmount : '0',
         items,
       });
 
@@ -182,13 +179,12 @@ export function DoctorVisitBillForm({ patientId, onBack }: { patientId: number; 
                 {discountMode === 'ITEM' && (
                   <div className="col-span-1 sm:col-span-1 xl:col-span-1">
                     <Input
-                      label={index === 0 ? 'ছাড় %' : undefined}
+                      label={index === 0 ? 'ছাড় (৳)' : undefined}
                       type="number"
                       step="0.01"
                       min="0"
-                      max="100"
-                      value={line.itemDiscountPercent}
-                      onChange={(e) => updateLine(index, 'itemDiscountPercent', e.target.value)}
+                      value={line.itemDiscountAmount}
+                      onChange={(e) => updateLine(index, 'itemDiscountAmount', e.target.value)}
                     />
                   </div>
                 )}
@@ -224,20 +220,19 @@ export function DoctorVisitBillForm({ patientId, onBack }: { patientId: number; 
                     : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                {mode === 'NONE' ? 'ছাড় নেই' : mode === 'BILL' ? 'পুরো বিলের %' : 'Item-wise %'}
+                {mode === 'NONE' ? 'ছাড় নেই' : mode === 'BILL' ? 'পুরো বিলের নির্দিষ্ট টাকা' : 'আইটেমভিত্তিক টাকা'}
               </button>
             ))}
           </div>
           {discountMode === 'BILL' && (
             <div className="max-w-xs">
               <Input
-                label="ছাড়ের শতাংশ"
+                label="ছাড়ের পরিমাণ (৳)"
                 type="number"
                 step="0.01"
                 min="0"
-                max="100"
-                value={billDiscountPercent}
-                onChange={(e) => setBillDiscountPercent(e.target.value)}
+                value={billDiscountAmount}
+                onChange={(e) => setBillDiscountAmount(e.target.value)}
               />
             </div>
           )}

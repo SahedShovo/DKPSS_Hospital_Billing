@@ -18,11 +18,11 @@ type DiscountMode = 'NONE' | 'BILL' | 'ITEM';
 interface LineItem {
   testId: string;
   quantity: string;
-  itemDiscountPercent: string;
+  itemDiscountAmount: string;
 }
 
 function emptyLine(): LineItem {
-  return { testId: '', quantity: '1', itemDiscountPercent: '0' };
+  return { testId: '', quantity: '1', itemDiscountAmount: '0' };
 }
 
 export function DiagnosticBillForm({ patientId, onBack }: { patientId: number; onBack: () => void }) {
@@ -30,7 +30,7 @@ export function DiagnosticBillForm({ patientId, onBack }: { patientId: number; o
   const [tests, setTests] = useState<LabTest[]>([]);
   const [lines, setLines] = useState<LineItem[]>([emptyLine()]);
   const [discountMode, setDiscountMode] = useState<DiscountMode>('NONE');
-  const [billDiscountPercent, setBillDiscountPercent] = useState('0');
+  const [billDiscountAmount, setBillDiscountAmount] = useState('0');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -59,9 +59,9 @@ export function DiagnosticBillForm({ patientId, onBack }: { patientId: number; o
 
   function handleDiscountModeChange(mode: DiscountMode) {
     setDiscountMode(mode);
-    if (mode !== 'BILL') setBillDiscountPercent('0');
+    if (mode !== 'BILL') setBillDiscountAmount('0');
     if (mode !== 'ITEM') {
-      setLines(lines.map((l) => ({ ...l, itemDiscountPercent: '0' })));
+      setLines(lines.map((l) => ({ ...l, itemDiscountAmount: '0' })));
     }
   }
 
@@ -73,13 +73,10 @@ export function DiagnosticBillForm({ patientId, onBack }: { patientId: number; o
 
   const previewDiscount =
     discountMode === 'BILL'
-      ? (previewGross * (parseFloat(billDiscountPercent) || 0)) / 100
+      ? (parseFloat(billDiscountAmount) || 0)
       : discountMode === 'ITEM'
         ? lines.reduce((sum, l) => {
-            const price = findTestPrice(l.testId);
-            const qty = parseInt(l.quantity, 10) || 0;
-            const pct = parseFloat(l.itemDiscountPercent) || 0;
-            return sum + (price * qty * pct) / 100;
+            return sum + (parseFloat(l.itemDiscountAmount) || 0);
           }, 0)
         : 0;
 
@@ -98,13 +95,13 @@ export function DiagnosticBillForm({ patientId, onBack }: { patientId: number; o
       const items: CreateDiagnosticItemInput[] = lines.map((l) => ({
         testId: parseInt(l.testId, 10),
         quantity: parseInt(l.quantity, 10) || 1,
-        itemDiscountPercent: discountMode === 'ITEM' ? l.itemDiscountPercent : '0',
+        itemDiscountAmount: discountMode === 'ITEM' ? l.itemDiscountAmount : '0',
       }));
 
       const bill = await billApi.createDiagnostic({
         patientId,
         discountMode,
-        discountPercent: discountMode === 'BILL' ? billDiscountPercent : '0',
+        discountAmount: discountMode === 'BILL' ? billDiscountAmount : '0',
         items,
       });
 
@@ -163,13 +160,12 @@ export function DiagnosticBillForm({ patientId, onBack }: { patientId: number; o
                   {discountMode === 'ITEM' && (
                     <div className="col-span-1 sm:col-span-1 xl:col-span-2">
                       <Input
-                        label={index === 0 ? 'ছাড় %' : undefined}
+                        label={index === 0 ? 'ছাড় (৳)' : undefined}
                         type="number"
                         step="0.01"
                         min="0"
-                        max="100"
-                        value={line.itemDiscountPercent}
-                        onChange={(e) => updateLine(index, 'itemDiscountPercent', e.target.value)}
+                        value={line.itemDiscountAmount}
+                        onChange={(e) => updateLine(index, 'itemDiscountAmount', e.target.value)}
                       />
                     </div>
                   )}
@@ -206,20 +202,19 @@ export function DiagnosticBillForm({ patientId, onBack }: { patientId: number; o
                     : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                {mode === 'NONE' ? 'ছাড় নেই' : mode === 'BILL' ? 'পুরো বিলের %' : 'Item-wise %'}
+                {mode === 'NONE' ? 'ছাড় নেই' : mode === 'BILL' ? 'পুরো বিলের নির্দিষ্ট টাকা' : 'আইটেমভিত্তিক টাকা'}
               </button>
             ))}
           </div>
           {discountMode === 'BILL' && (
             <div className="max-w-xs">
               <Input
-                label="ছাড়ের শতাংশ"
+                label="ছাড়ের পরিমাণ (৳)"
                 type="number"
                 step="0.01"
                 min="0"
-                max="100"
-                value={billDiscountPercent}
-                onChange={(e) => setBillDiscountPercent(e.target.value)}
+                value={billDiscountAmount}
+                onChange={(e) => setBillDiscountAmount(e.target.value)}
               />
             </div>
           )}

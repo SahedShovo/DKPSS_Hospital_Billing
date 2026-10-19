@@ -17,6 +17,7 @@ import { DeleteBillsRangeDto } from './dto/delete-bills-range.dto';
 import { BillPageDto } from './dto/bill-page.dto';
 import { BillStatus } from '../../common/enums/bill-status.enum';
 import { CreatePackageBillDto } from './dto/create-package-bill.dto';
+import { CreateManualBillDto } from './dto/create-manual-bill.dto';
 
 @Injectable()
 export class BillService {
@@ -25,6 +26,19 @@ export class BillService {
     private calc: BillCalculationService,
     private auditLog: AuditLogService,
   ) {}
+
+  private itemDiscountAmount(item: any): Money {
+    const savedAmount = Money.of(item.itemDiscountValue ?? '0');
+    if (!savedAmount.equals('0')) return savedAmount;
+    const lineAmount = Money.of(item.unitPrice).multiply(item.quantity);
+    return lineAmount.percentOf(item.itemDiscountPercent ?? '0');
+  }
+
+  private billDiscountAmount(bill: any, grossAmount: string): Money {
+    const savedAmount = Money.of(bill.billDiscountValue ?? '0');
+    if (!savedAmount.equals('0')) return savedAmount;
+    return Money.of(grossAmount).percentOf(bill.discountPercent ?? '0');
+  }
 
   private async generateBillNo(billType: BillType): Promise<string> {
     const [{ lastNumber }] = await this.db
@@ -36,16 +50,16 @@ export class BillService {
 
   async createDoctorVisitBill(dto: CreateDoctorVisitBillDto, createdBy: number) {
     const mode = dto.discountMode ?? DiscountMode.NONE;
-    const billDiscountPercent = dto.discountPercent ?? '0';
+    const billDiscountAmount = dto.discountAmount ?? '0';
 
     const calcItems: BillItemInput[] = dto.items.map((i) => ({
       unitPrice: i.unitPrice,
       quantity: i.quantity ?? 1,
-      itemDiscountPercent: i.itemDiscountPercent ?? '0',
+      itemDiscountAmount: i.itemDiscountAmount ?? '0',
     }));
 
-    this.calc.validateDiscountMode(mode, billDiscountPercent, calcItems);
-    const totals = this.calc.computeTotals(mode, billDiscountPercent, calcItems);
+    this.calc.validateDiscountMode(mode, billDiscountAmount, calcItems);
+    const totals = this.calc.computeTotals(mode, billDiscountAmount, calcItems);
     const billNo = await this.generateBillNo(BillType.DOCTOR_VISIT);
 
     return this.db.transaction(async (tx: any) => {
@@ -57,7 +71,8 @@ export class BillService {
           billType: BillType.DOCTOR_VISIT,
           discountMode: mode,
           grossAmount: totals.grossAmount,
-          discountPercent: Money.of(billDiscountPercent).toDb(),
+          billDiscountValue: Money.of(billDiscountAmount).toDb(),
+          discountPercent: '0.00',
           discountAmount: totals.discountAmount,
           netAmount: totals.netAmount,
           totalPaid: '0.00',
@@ -68,7 +83,7 @@ export class BillService {
 
       const itemRows = dto.items.map((item) => {
         const lineAmount = Money.of(item.unitPrice).multiply(item.quantity ?? 1);
-        const lineDiscount = lineAmount.percentOf(item.itemDiscountPercent ?? '0');
+        const lineDiscount = Money.of(item.itemDiscountAmount ?? '0');
         return {
           billId: bill.id,
           itemType: ItemType.DOCTOR_VISIT,
@@ -77,7 +92,8 @@ export class BillService {
           doctorId: item.doctorId,
           unitPrice: Money.of(item.unitPrice).toDb(),
           quantity: item.quantity ?? 1,
-          itemDiscountPercent: Money.of(item.itemDiscountPercent ?? '0').toDb(),
+          itemDiscountValue: Money.of(item.itemDiscountAmount ?? '0').toDb(),
+          itemDiscountPercent: '0.00',
           amount: lineAmount.toDb(),
           discountAmount: lineDiscount.toDb(),
         };
@@ -100,14 +116,14 @@ export class BillService {
 
   async createDiagnosticBill(dto: CreateDiagnosticBillDto, createdBy: number) {
     const mode = dto.discountMode ?? DiscountMode.NONE;
-    const billDiscountPercent = dto.discountPercent ?? '0';
+    const billDiscountAmount = dto.discountAmount ?? '0';
 
     const resolvedItems: {
       testId: number;
       name: string;
       price: string;
       quantity: number;
-      itemDiscountPercent: string;
+      itemDiscountAmount: string;
     }[] = [];
     for (const item of dto.items) {
       const [test] = await this.db
@@ -121,18 +137,18 @@ export class BillService {
         name: test.name,
         price: test.price,
         quantity: item.quantity ?? 1,
-        itemDiscountPercent: item.itemDiscountPercent ?? '0',
+        itemDiscountAmount: item.itemDiscountAmount ?? '0',
       });
     }
 
     const calcItems: BillItemInput[] = resolvedItems.map((i) => ({
       unitPrice: i.price,
       quantity: i.quantity,
-      itemDiscountPercent: i.itemDiscountPercent,
+      itemDiscountAmount: i.itemDiscountAmount,
     }));
 
-    this.calc.validateDiscountMode(mode, billDiscountPercent, calcItems);
-    const totals = this.calc.computeTotals(mode, billDiscountPercent, calcItems);
+    this.calc.validateDiscountMode(mode, billDiscountAmount, calcItems);
+    const totals = this.calc.computeTotals(mode, billDiscountAmount, calcItems);
     const billNo = await this.generateBillNo(BillType.DIAGNOSTIC);
 
     return this.db.transaction(async (tx: any) => {
@@ -144,7 +160,8 @@ export class BillService {
           billType: BillType.DIAGNOSTIC,
           discountMode: mode,
           grossAmount: totals.grossAmount,
-          discountPercent: Money.of(billDiscountPercent).toDb(),
+          billDiscountValue: Money.of(billDiscountAmount).toDb(),
+          discountPercent: '0.00',
           discountAmount: totals.discountAmount,
           netAmount: totals.netAmount,
           totalPaid: '0.00',
@@ -155,7 +172,7 @@ export class BillService {
 
       const itemRows = resolvedItems.map((item) => {
         const lineAmount = Money.of(item.price).multiply(item.quantity);
-        const lineDiscount = lineAmount.percentOf(item.itemDiscountPercent);
+        const lineDiscount = Money.of(item.itemDiscountAmount);
         return {
           billId: bill.id,
           itemType: ItemType.DIAGNOSTIC,
@@ -163,7 +180,8 @@ export class BillService {
           testId: item.testId,
           unitPrice: Money.of(item.price).toDb(),
           quantity: item.quantity,
-          itemDiscountPercent: Money.of(item.itemDiscountPercent).toDb(),
+          itemDiscountValue: Money.of(item.itemDiscountAmount).toDb(),
+          itemDiscountPercent: '0.00',
           amount: lineAmount.toDb(),
           discountAmount: lineDiscount.toDb(),
         };
@@ -209,6 +227,7 @@ export class BillService {
         billType: BillType.PACKAGE,
         discountMode: DiscountMode.NONE,
         grossAmount: amount,
+        billDiscountValue: '0.00',
         discountPercent: '0.00',
         discountAmount: '0.00',
         netAmount: amount,
@@ -240,6 +259,61 @@ export class BillService {
     });
   }
 
+  async createManualBill(dto: CreateManualBillDto, billType: BillType.EMERGENCY | BillType.MEDICINE, itemType: ItemType.EMERGENCY | ItemType.MEDICINE, createdBy: number) {
+    if (dto.items.some((item) => !item.itemName.trim() || !Number.isInteger(item.quantity ?? 1) || (item.quantity ?? 1) < 1 || Money.of(item.unitPrice).isNegative())) {
+      throw new BadRequestException('আইটেমের নাম, অঋণাত্মক দাম এবং অন্তত ১টি সংখ্যা দিতে হবে');
+    }
+    const mode = dto.discountMode ?? DiscountMode.NONE;
+    const billDiscountAmount = dto.discountAmount ?? '0';
+    const calcItems: BillItemInput[] = dto.items.map((item) => ({
+      unitPrice: item.unitPrice,
+      quantity: item.quantity ?? 1,
+      itemDiscountAmount: item.itemDiscountAmount ?? '0',
+    }));
+    this.calc.validateDiscountMode(mode, billDiscountAmount, calcItems);
+    const totals = this.calc.computeTotals(mode, billDiscountAmount, calcItems);
+    const billNo = await this.generateBillNo(billType);
+
+    return this.db.transaction(async (tx: any) => {
+      const [bill] = await tx.insert(bills).values({
+        billNo,
+        patientId: dto.patientId,
+        billType,
+        discountMode: mode,
+        grossAmount: totals.grossAmount,
+        billDiscountValue: Money.of(billDiscountAmount).toDb(),
+        discountPercent: '0.00',
+        discountAmount: totals.discountAmount,
+        netAmount: totals.netAmount,
+        totalPaid: '0.00',
+        dueAmount: totals.netAmount,
+        createdBy,
+      }).returning();
+
+      const rows = dto.items.map((item) => ({
+        billId: bill.id,
+        itemType,
+        itemName: item.itemName.trim(),
+        unitPrice: Money.of(item.unitPrice).toDb(),
+        quantity: item.quantity ?? 1,
+        itemDiscountValue: Money.of(item.itemDiscountAmount ?? '0').toDb(),
+        itemDiscountPercent: '0.00',
+        amount: Money.of(item.unitPrice).multiply(item.quantity ?? 1).toDb(),
+        discountAmount: Money.of(item.itemDiscountAmount ?? '0').toDb(),
+      }));
+      const items = await tx.insert(billItems).values(rows).returning();
+      await this.auditLog.log({
+        dbOrTx: tx,
+        userId: createdBy,
+        action: AuditAction.INSERT,
+        tableName: 'bills',
+        recordId: bill.id,
+        newValue: { ...bill, items },
+      });
+      return { ...bill, items };
+    });
+  }
+
   async findOne(id: number) {
     const [bill] = await this.db.select().from(bills).where(eq(bills.id, id)).limit(1);
     if (!bill) throw new NotFoundException('Bill পাওয়া যায়নি');
@@ -268,14 +342,16 @@ export class BillService {
     const calcItems: BillItemInput[] = bill.items.map((i: any) => ({
       unitPrice: i.unitPrice,
       quantity: i.quantity,
-      itemDiscountPercent: i.itemDiscountPercent,
+      itemDiscountAmount: dto.discountMode === DiscountMode.BILL || dto.discountMode === DiscountMode.NONE
+        ? '0'
+        : this.itemDiscountAmount(i).toDb(),
     }));
 
     const mode = dto.discountMode;
-    const billDiscountPercent = dto.discountPercent ?? '0';
+    const billDiscountValue = dto.discountAmount ?? '0';
 
-    this.calc.validateDiscountMode(mode, billDiscountPercent, calcItems);
-    const totals = this.calc.computeTotals(mode, billDiscountPercent, calcItems);
+    this.calc.validateDiscountMode(mode, billDiscountValue, calcItems);
+    const totals = this.calc.computeTotals(mode, billDiscountValue, calcItems);
 
     const newDue = Money.of(totals.netAmount).subtract(bill.totalPaid);
     if (newDue.isNegative()) {
@@ -288,7 +364,8 @@ export class BillService {
       .update(bills)
       .set({
         discountMode: mode,
-        discountPercent: Money.of(billDiscountPercent).toDb(),
+        billDiscountValue: mode === DiscountMode.BILL ? Money.of(billDiscountValue).toDb() : '0.00',
+        discountPercent: '0.00',
         grossAmount: totals.grossAmount,
         discountAmount: totals.discountAmount,
         netAmount: totals.netAmount,
@@ -298,6 +375,13 @@ export class BillService {
       })
       .where(eq(bills.id, id))
       .returning();
+
+    if (mode === DiscountMode.BILL || mode === DiscountMode.NONE) {
+      await this.db
+        .update(billItems)
+        .set({ itemDiscountValue: '0.00', itemDiscountPercent: '0.00', discountAmount: '0.00' })
+        .where(eq(billItems.billId, id));
+    }
 
     await this.auditLog.log({
       userId: updatedBy,
@@ -319,10 +403,12 @@ export class BillService {
     const calcItems: BillItemInput[] = items.map((i: any) => ({
       unitPrice: i.unitPrice,
       quantity: i.quantity,
-      itemDiscountPercent: i.itemDiscountPercent,
+      itemDiscountAmount: this.itemDiscountAmount(i).toDb(),
     }));
 
-    const totals = this.calc.computeTotals(bill.discountMode, bill.discountPercent, calcItems);
+    const gross = items.reduce((sum: Money, item: any) => sum.add(Money.of(item.unitPrice).multiply(item.quantity)), Money.of('0'));
+    const discountValue = this.billDiscountAmount(bill, gross.toDb()).toDb();
+    const totals = this.calc.computeTotals(bill.discountMode, discountValue, calcItems);
     const newDue = Money.of(totals.netAmount).subtract(bill.totalPaid);
     if (newDue.isNegative()) {
       throw new BadRequestException(

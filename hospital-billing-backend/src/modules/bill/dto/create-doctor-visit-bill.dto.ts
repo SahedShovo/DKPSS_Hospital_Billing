@@ -21,7 +21,7 @@ class DoctorVisitItemDto {
 
   @IsOptional()
   @IsNumberString()
-  itemDiscountPercent?: string = '0';
+  itemDiscountAmount?: string = '0';
 }
 
 export class CreateDoctorVisitBillDto {
@@ -34,7 +34,7 @@ export class CreateDoctorVisitBillDto {
 
   @IsOptional()
   @IsNumberString()
-  discountPercent?: string = '0';
+  discountAmount?: string = '0';
 
   @IsArray()
   @ArrayMinSize(1)

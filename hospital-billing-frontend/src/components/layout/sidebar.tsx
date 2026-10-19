@@ -67,7 +67,12 @@ export function Sidebar() {
   return (
     <aside className="relative z-20 flex w-full shrink-0 flex-col border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:border-b-0 lg:border-r">
       <div className="border-b border-slate-200 px-4 py-3 sm:px-5 lg:py-5">
-        <div className="flex items-center gap-3">
+        <Link
+          href="/dashboard"
+          aria-label="DKPSSHP Billing & Care Dashboard-এ যান"
+          title="Dashboard-এ যান"
+          className="flex cursor-pointer items-center gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-700"
+        >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-700 text-white shadow-sm shadow-teal-900/20">
             <Activity size={21} strokeWidth={2.2} aria-hidden="true" />
           </div>
@@ -75,7 +80,7 @@ export function Sidebar() {
             <h1 className="text-sm font-semibold text-slate-900">DKPSSHP</h1>
             <p className="text-xs text-slate-500">Billing &amp; Care</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       <nav aria-label="প্রধান নেভিগেশন" className="flex gap-2 overflow-x-auto px-3 py-2 lg:flex-1 lg:flex-col lg:gap-5 lg:overflow-x-hidden lg:overflow-y-auto lg:px-3 lg:py-5">

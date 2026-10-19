@@ -8,7 +8,7 @@ import { Alert } from '@/components/ui/alert';
 import { billApi } from '@/lib/bill';
 import { Bill, BillType, BillStatus } from '@/types/bill.types';
 import { ApiError } from '@/lib/api';
-import { formatMoneyWithSymbol } from '@/lib/money';
+import { formatMoneyWithSymbol, roundMoneyToWhole } from '@/lib/money';
 import { Button } from '@/components/ui/button';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useAuth } from '@/hooks/use-auth';
@@ -28,6 +28,10 @@ function escapeCsvCell(value: string | number): string {
   let text = String(value);
   if (/^[=+@\-\t\r]/.test(text)) text = `'${text}`;
   return `"${text.replace(/"/g, '""')}"`;
+}
+
+function sumRoundedMoney(values: string[]): string {
+  return values.reduce((total, value) => total + BigInt(roundMoneyToWhole(value)), BigInt(0)).toString();
 }
 
 export default function BillsPage() {
@@ -132,14 +136,23 @@ export default function BillsPage() {
       new Date(bill.createdAt).toLocaleDateString('en-GB'),
       bill.billType,
       bill.patientId,
-      bill.grossAmount,
-      bill.discountAmount,
-      bill.netAmount,
-      bill.totalPaid,
-      bill.dueAmount,
+      roundMoneyToWhole(bill.grossAmount),
+      roundMoneyToWhole(bill.discountAmount),
+      roundMoneyToWhole(bill.netAmount),
+      roundMoneyToWhole(bill.totalPaid),
+      roundMoneyToWhole(bill.dueAmount),
       bill.status,
     ]);
-    const csv = [headers, ...rows]
+    const totalsRow = [
+      `TOTAL (${exportBills.length} bills)`, '', '', '',
+      sumRoundedMoney(exportBills.map((bill) => bill.grossAmount)),
+      sumRoundedMoney(exportBills.map((bill) => bill.discountAmount)),
+      sumRoundedMoney(exportBills.map((bill) => bill.netAmount)),
+      sumRoundedMoney(exportBills.map((bill) => bill.totalPaid)),
+      sumRoundedMoney(exportBills.map((bill) => bill.dueAmount)),
+      '',
+    ];
+    const csv = [headers, ...rows, totalsRow]
       .map((row) => row.map(escapeCsvCell).join(','))
       .join('\r\n');
     const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
@@ -298,6 +311,8 @@ export default function BillsPage() {
             <option value="DIAGNOSTIC">Diagnostic</option>
             <option value="ADMISSION">Admission</option>
             <option value="PACKAGE">Package</option>
+            <option value="EMERGENCY">Emergency</option>
+            <option value="MEDICINE">Medicine</option>
           </Select>
         </div>
         <div className="w-full sm:w-48">

@@ -13,6 +13,7 @@ import { ApiError } from '@/lib/api';
 import { formatMoneyWithSymbol } from '@/lib/money';
 import { Pagination } from '@/components/ui/pagination';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { Search } from 'lucide-react';
 
 const ITEM_TYPES: ItemType[] = ['DOCTOR_VISIT', 'DIAGNOSTIC', 'ADMISSION_FEE', 'BED', 'OT', 'MEDICINE', 'OTHER'];
 
@@ -21,6 +22,8 @@ export default function PackagesPage() {
   const pageSize = 10;
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [searchText, setSearchText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [name, setName] = useState('');
   const [packagePrice, setPackagePrice] = useState('');
   const [items, setItems] = useState<CreatePackageItemInput[]>([
@@ -38,7 +41,7 @@ export default function PackagesPage() {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await packageApi.findPage(page, pageSize);
+      const result = await packageApi.findPage(page, pageSize, searchQuery);
       setPackages(result.items);
       setTotal(result.total);
     } catch (err) {
@@ -46,11 +49,19 @@ export default function PackagesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page]);
+  }, [page, searchQuery]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchText.trim().length >= 2 ? searchText.trim() : '');
+      setPage(1);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchText]);
 
   function addItemRow() {
     setItems([...items, { itemType: 'DIAGNOSTIC', itemName: '', amount: '' }]);
@@ -266,12 +277,31 @@ export default function PackagesPage() {
           </div>
         </div>
 
+        <div className="mb-4 max-w-xl">
+          <Input
+            label="প্যাকেজ খুঁজুন"
+            type="search"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Package Name"
+            className="min-h-11"
+          />
+          <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-500">
+            <Search size={13} aria-hidden="true" />
+            {searchText.trim().length > 0 && searchText.trim().length < 2
+              ? 'সাজেশন দেখতে আরও একটি অক্ষর লিখুন'
+              : searchQuery
+                ? `“${searchQuery}” মিলে এমন প্যাকেজ`
+                : 'Package Show'}
+          </p>
+        </div>
+
         {isLoading ? (
           <div className="py-10 text-center text-sm text-slate-500">প্যাকেজ লোড হচ্ছে...</div>
         ) : packages.length === 0 ? (
           <div className="rounded-md border border-dashed border-slate-300 bg-white px-4 py-12 text-center">
-            <p className="font-medium text-slate-700">এখনো কোনো প্যাকেজ তৈরি করা হয়নি</p>
-            <p className="mt-1 text-sm text-slate-500">উপরের ফর্ম ব্যবহার করে প্রথম প্যাকেজটি তৈরি করুন।</p>
+            <p className="font-medium text-slate-700">{searchQuery ? 'মিল থাকা প্যাকেজ পাওয়া যায়নি' : 'এখনো কোনো প্যাকেজ তৈরি করা হয়নি'}</p>
+            <p className="mt-1 text-sm text-slate-500">{searchQuery ? 'অন্য নাম লিখে খুঁজুন।' : 'উপরের ফর্ম ব্যবহার করে প্রথম প্যাকেজটি তৈরি করুন।'}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">

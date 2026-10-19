@@ -14,7 +14,7 @@ class DiagnosticItemDto {
 
   @IsOptional()
   @IsNumberString()
-  itemDiscountPercent?: string = '0';
+  itemDiscountAmount?: string = '0';
 }
 
 export class CreateDiagnosticBillDto {
@@ -27,7 +27,7 @@ export class CreateDiagnosticBillDto {
 
   @IsOptional()
   @IsNumberString()
-  discountPercent?: string = '0';
+  discountAmount?: string = '0';
 
   @IsArray()
   @ArrayMinSize(1)

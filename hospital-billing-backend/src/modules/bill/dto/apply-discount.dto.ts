@@ -7,5 +7,5 @@ export class ApplyDiscountDto {
 
   @IsOptional()
   @IsNumberString()
-  discountPercent?: string = '0';
+  discountAmount?: string = '0';
 }

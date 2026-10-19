@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { eq, ilike, inArray, sql } from 'drizzle-orm';
 import { DRIZZLE } from '../../database/drizzle.provider';
 import { billItems, packages, packageItems } from '../../database/schema';
 import { Money } from '../../common/utils/money.util';
@@ -43,10 +43,14 @@ export class PackageService {
     return this.db.select().from(packages).orderBy(packages.id);
   }
 
-  async findPage({ page, pageSize }: PageQueryDto) {
+  async findPage({ page, pageSize, search }: PageQueryDto & { search?: string }) {
+    const searchTerm = search?.trim();
+    const searchFilter = searchTerm
+      ? ilike(packages.name, `%${searchTerm.replace(/[\\%_]/g, '\\$&')}%`)
+      : undefined;
     const [rows, [{ total }]] = await Promise.all([
-      this.db.select().from(packages).orderBy(packages.id).limit(pageSize).offset((page - 1) * pageSize),
-      this.db.select({ total: sql<number>`count(*)::int` }).from(packages),
+      this.db.select().from(packages).where(searchFilter).orderBy(packages.id).limit(pageSize).offset((page - 1) * pageSize),
+      this.db.select({ total: sql<number>`count(*)::int` }).from(packages).where(searchFilter),
     ]);
     if (!rows.length) return { items: [], total, page, pageSize };
     const ids = rows.map((pkg: any) => pkg.id);

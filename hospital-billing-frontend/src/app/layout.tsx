@@ -5,8 +5,9 @@ import { ToastProvider } from '@/context/toast-context';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Hospital Billing System',
+  title: 'DKPSSHP Billing & Care',
   description: 'DKPSSHP Hospital Billing & Management System',
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

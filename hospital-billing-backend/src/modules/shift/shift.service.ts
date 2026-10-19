@@ -40,8 +40,12 @@ export class ShiftService {
   }
 
   /** Shift-এর হিসাব: opening + payments + due_payments + refunds(negative) */
-  async getSummary(shiftId: number) {
-    const [shift] = await this.db.select().from(shifts).where(eq(shifts.id, shiftId)).limit(1);
+  async getSummary(shiftId: number, userId: number) {
+    const [shift] = await this.db
+      .select()
+      .from(shifts)
+      .where(and(eq(shifts.id, shiftId), eq(shifts.userId, userId)))
+      .limit(1);
     if (!shift) throw new NotFoundException('Shift পাওয়া যায়নি');
 
     const [{ sum: paymentsSum }] = await this.db
@@ -78,7 +82,7 @@ export class ShiftService {
     const shift = await this.getOpenShiftForUser(userId);
     if (!shift) throw new NotFoundException('চালু কোনো Shift নেই');
 
-    const summary = await this.getSummary(shift.id);
+    const summary = await this.getSummary(shift.id, userId);
     const closingCash = Money.of(dto.closingCash);
     const difference = closingCash.subtract(summary.expectedCash);
 

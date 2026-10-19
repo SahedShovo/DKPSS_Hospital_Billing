@@ -1,4 +1,4 @@
-export type BillType = 'DOCTOR_VISIT' | 'DIAGNOSTIC' | 'ADMISSION' | 'PACKAGE';
+export type BillType = 'DOCTOR_VISIT' | 'DIAGNOSTIC' | 'ADMISSION' | 'PACKAGE' | 'EMERGENCY' | 'MEDICINE';
 export type BillStatus = 'ACTIVE' | 'CANCELLED';
 export type DiscountMode = 'NONE' | 'BILL' | 'ITEM';
 export type VisitType = 'CONSULTANT' | 'DUTY_DOCTOR' | 'SURGEON';
@@ -14,6 +14,7 @@ export interface BillItem {
   unitPrice: string;
   quantity: number;
   itemDiscountPercent: string;
+  itemDiscountValue: string;
   amount: string;
   discountAmount: string;
 }
@@ -57,6 +58,7 @@ export interface Bill {
   discountMode: DiscountMode;
   grossAmount: string;
   discountPercent: string;
+  billDiscountValue: string;
   discountAmount: string;
   netAmount: string;
   totalPaid: string;

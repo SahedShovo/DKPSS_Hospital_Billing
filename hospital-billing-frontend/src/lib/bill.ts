@@ -6,32 +6,39 @@ export interface CreateDoctorVisitItemInput {
   visitType: 'CONSULTANT' | 'DUTY_DOCTOR' | 'SURGEON';
   unitPrice: string;
   quantity?: number;
-  itemDiscountPercent?: string;
+  itemDiscountAmount?: string;
 }
 
 export interface CreateDoctorVisitBillInput {
   patientId: number;
   discountMode?: 'NONE' | 'BILL' | 'ITEM';
-  discountPercent?: string;
+  discountAmount?: string;
   items: CreateDoctorVisitItemInput[];
 }
 
 export interface CreateDiagnosticItemInput {
   testId: number;
   quantity?: number;
-  itemDiscountPercent?: string;
+  itemDiscountAmount?: string;
 }
 
 export interface CreateDiagnosticBillInput {
   patientId: number;
   discountMode?: 'NONE' | 'BILL' | 'ITEM';
-  discountPercent?: string;
+  discountAmount?: string;
   items: CreateDiagnosticItemInput[];
 }
 
 export interface CreatePackageBillInput {
   patientId: number;
   packageId: number;
+}
+
+export interface CreateManualBillInput {
+  patientId: number;
+  discountMode?: 'NONE' | 'BILL' | 'ITEM';
+  discountAmount?: string;
+  items: { itemName: string; unitPrice: string; quantity: number; itemDiscountAmount?: string }[];
 }
 
 export const billApi = {
@@ -59,7 +66,9 @@ export const billApi = {
   createDiagnostic: (input: CreateDiagnosticBillInput) =>
     api.post<Bill>('/bills/diagnostic', input),
   createPackage: (input: CreatePackageBillInput) => api.post<Bill>('/bills/package', input),
-  applyDiscount: (id: number, discountMode: string, discountPercent: string) =>
-    api.patch<Bill>(`/bills/${id}/discount`, { discountMode, discountPercent }),
+  createEmergency: (input: CreateManualBillInput) => api.post<Bill>('/bills/emergency', input),
+  createMedicine: (input: CreateManualBillInput) => api.post<Bill>('/bills/medicine', input),
+  applyDiscount: (id: number, discountMode: string, discountAmount: string) =>
+    api.patch<Bill>(`/bills/${id}/discount`, { discountMode, discountAmount }),
   cancel: (id: number) => api.post<Bill>(`/bills/${id}/cancel`, {}),
 };

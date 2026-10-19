@@ -26,7 +26,10 @@ export class ShiftController {
   }
 
   @Get(':id/summary')
-  summary(@Param('id', ParseIntPipe) id: number) {
-    return this.shiftService.getSummary(id);
+  summary(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.shiftService.getSummary(id, user.id);
   }
 }

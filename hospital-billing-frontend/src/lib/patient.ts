@@ -9,8 +9,9 @@ export const patientApi = {
       `/patients/page?page=${page}&pageSize=${pageSize}`,
     ),
   findOne: (id: number) => api.get<Patient>(`/patients/${id}`),
-  search: (query: { name?: string; phone?: string; patientCode?: string }) => {
+  search: (query: { query?: string; name?: string; phone?: string; patientCode?: string }) => {
     const params = new URLSearchParams();
+    if (query.query) params.set('query', query.query);
     if (query.name) params.set('name', query.name);
     if (query.phone) params.set('phone', query.phone);
     if (query.patientCode) params.set('patientCode', query.patientCode);

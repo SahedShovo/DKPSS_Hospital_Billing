@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ export default function PatientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const searchSequence = useRef(0);
 
   const loadPatients = useCallback(async (targetPage: number) => {
     setIsLoading(true);
@@ -44,30 +45,45 @@ export default function PatientsPage() {
     if (!isSearchMode) loadPatients(page);
   }, [loadPatients, page, isSearchMode]);
 
-  async function handleSearch() {
-    if (!searchQuery.trim()) {
-      setIsSearchMode(false);
-      setPage(1);
-      return;
-    }
+  const searchPatients = useCallback(async (query: string, requestId = ++searchSequence.current) => {
+    if (requestId !== searchSequence.current) return;
     setIsLoading(true);
     setError(null);
     try {
-      const query = searchQuery.trim();
-      const isPatientCodeLike = /^P-\d+$/i.test(query);
-      const isPhoneLike = /^\d+$/.test(query);
-      const results = isPatientCodeLike
-        ? await patientApi.search({ patientCode: query.toUpperCase() })
-        : isPhoneLike
-          ? await patientApi.search({ phone: query })
-          : await patientApi.search({ name: query });
+      const results = await patientApi.search({ query });
+      if (requestId !== searchSequence.current) return;
       setPatients(results);
       setTotalPatients(results.length);
       setIsSearchMode(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'খোঁজা যায়নি');
+      if (requestId === searchSequence.current) {
+        setError(err instanceof ApiError ? err.message : 'খোঁজা যায়নি');
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === searchSequence.current) setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    const requestId = ++searchSequence.current;
+    if (query.length < 2) {
+      setIsSearchMode(false);
+      setPage(1);
+      return;
+    }
+    const timer = setTimeout(() => {
+      void searchPatients(query, requestId);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery, searchPatients]);
+
+  function handleSearch() {
+    const query = searchQuery.trim();
+    if (query.length >= 2) void searchPatients(query);
+    else {
+      setIsSearchMode(false);
+      setPage(1);
     }
   }
 
@@ -100,7 +116,7 @@ export default function PatientsPage() {
       <div className="mb-4 flex flex-wrap gap-2">
         <div className="min-w-0 flex-1">
           <Input
-            placeholder="Patient Code,নাম, ফোন নম্বর বা  দিয়ে খুঁজুন..."
+            placeholder="নাম, রোগী কোড বা ফোন"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -110,6 +126,13 @@ export default function PatientsPage() {
           {isLoading ? 'খোঁজা হচ্ছে...' : 'খুঁজুন'}
         </Button>
       </div>
+      <p className="-mt-2 mb-4 text-xs text-slate-500">
+        {searchQuery.trim().length === 1
+          ? 'সাজেশন দেখতে আরও একটি অক্ষর লিখুন'
+          : searchQuery.trim().length >= 2
+            ? 'নাম, রোগী কোড ও ফোন নম্বরে মিল থাকা রোগী দেখানো হচ্ছে'
+            : 'Patients List'}
+      </p>
 
       {error && <div className="mb-4"><Alert message={error} /></div>}
 

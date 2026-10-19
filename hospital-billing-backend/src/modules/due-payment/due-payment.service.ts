@@ -15,13 +15,13 @@ export class DuePaymentService {
     private auditLog: AuditLogService,
   ) {}
 
-  async getOutstanding(patientId: number): Promise<Money> {
-    const [{ sum: billDue }] = await this.db
+  async getOutstanding(patientId: number, db: any = this.db): Promise<Money> {
+    const [{ sum: billDue }] = await db
       .select({ sum: sql<string>`COALESCE(SUM(${bills.dueAmount}),0)` })
       .from(bills)
       .where(and(eq(bills.patientId, patientId), eq(bills.status, 'ACTIVE')));
 
-    const [{ sum: collected }] = await this.db
+    const [{ sum: collected }] = await db
       .select({ sum: sql<string>`COALESCE(SUM(${duePayments.amount}),0)` })
       .from(duePayments)
       .where(eq(duePayments.patientId, patientId));
@@ -68,27 +68,38 @@ export class DuePaymentService {
       throw new BadRequestException('জমার পরিমাণ ধনাত্মক হতে হবে');
     }
 
-    const outstanding = await this.getOutstanding(dto.patientId);
-    if (amount.isGreaterThan(outstanding)) {
-      throw new BadRequestException(
-        `জমা (${dto.amount}) মোট বাকির (${outstanding.toDb()}) চেয়ে বেশি হতে পারবে না`,
-      );
-    }
+    return this.db.transaction(async (tx: any) => {
+      // Serialize due collections for this patient before checking the balance.
+      const [patient] = await tx
+        .select({ id: patients.id })
+        .from(patients)
+        .where(eq(patients.id, dto.patientId))
+        .for('update');
+      if (!patient) throw new NotFoundException('রোগী পাওয়া যায়নি');
 
-    const [created] = await this.db
-      .insert(duePayments)
-      .values({ patientId: dto.patientId, receivedBy, shiftId, amount: amount.toDb() })
-      .returning();
+      const outstanding = await this.getOutstanding(dto.patientId, tx);
+      if (amount.isGreaterThan(outstanding)) {
+        throw new BadRequestException(
+          `জমা (${dto.amount}) মোট বাকির (${outstanding.toDb()}) চেয়ে বেশি হতে পারবে না`,
+        );
+      }
 
-    await this.auditLog.log({
-      userId: receivedBy,
-      action: AuditAction.INSERT,
-      tableName: 'due_payments',
-      recordId: created.id,
-      newValue: created,
+      const [created] = await tx
+        .insert(duePayments)
+        .values({ patientId: dto.patientId, receivedBy, shiftId, amount: amount.toDb() })
+        .returning();
+
+      await this.auditLog.log({
+        dbOrTx: tx,
+        userId: receivedBy,
+        action: AuditAction.INSERT,
+        tableName: 'due_payments',
+        recordId: created.id,
+        newValue: created,
+      });
+
+      return created;
     });
-
-    return created;
   }
 
   async findByPatient(patientId: number) {

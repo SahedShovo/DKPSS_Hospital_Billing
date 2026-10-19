@@ -55,7 +55,9 @@ export default function BillPrintPage() {
   const billTypeLabel = bill.billType === 'DOCTOR_VISIT' ? 'Doctor Visit'
     : bill.billType === 'DIAGNOSTIC' ? 'Diagnostic'
       : bill.billType === 'PACKAGE' ? 'Package'
-        : 'Admission';
+        : bill.billType === 'EMERGENCY' ? 'Emergency'
+          : bill.billType === 'MEDICINE' ? 'Medicine'
+            : 'Admission';
   const billDate = new Date(bill.createdAt).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
@@ -136,7 +138,7 @@ export default function BillPrintPage() {
           <div className="mb-6 flex justify-end">
             <div className="w-64 space-y-1 text-sm">
               <div className="flex justify-between"><span>Gross Amount</span><span>{formatMoneyWithSymbol(bill.grossAmount)}</span></div>
-              <div className="flex justify-between"><span>Discount ({bill.discountMode === 'BILL' ? `${bill.discountPercent}%` : bill.discountMode})</span><span>- {formatMoneyWithSymbol(bill.discountAmount)}</span></div>
+              <div className="flex justify-between"><span>Discount ({bill.discountMode === 'BILL' ? 'নির্দিষ্ট টাকা' : bill.discountMode})</span><span>- {formatMoneyWithSymbol(bill.discountAmount)}</span></div>
               <div className="flex justify-between border-t border-gray-400 pt-1 font-semibold"><span>Net Amount</span><span>{formatMoneyWithSymbol(bill.netAmount)}</span></div>
               <div className="flex justify-between text-green-700"><span>Paid</span><span>{formatMoneyWithSymbol(bill.totalPaid)}</span></div>
               <div className="flex justify-between border-t-2 border-gray-800 pt-1 text-base font-bold"><span>Due</span><span>{formatMoneyWithSymbol(bill.dueAmount)}</span></div>

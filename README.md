@@ -16,3 +16,5 @@ Create local environment files; do not commit them. Configure the backend with `
 Install dependencies in each application directory with `npm install`. Start the API with `npm run start:dev` from the backend directory and start the UI with `npm run dev` from the frontend directory. The frontend runs on port 3000 by default; the backend uses the configured `PORT` (4002 by default).
 
 Before deployment, provision PostgreSQL, configure environment variables on the hosting services, and apply the database schema. Keep credentials and environment files private.
+
+For the fixed-amount discount update, apply `hospital-billing-backend/src/database/migrations/20261019_fixed_discount_amount.sql` to the existing database before deploying the updated API. Historical percentage fields remain in place for older bills.

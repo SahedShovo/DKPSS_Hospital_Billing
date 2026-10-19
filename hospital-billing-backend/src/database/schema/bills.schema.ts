@@ -9,9 +9,11 @@ export const bills = pgTable('bills', {
   id: serial('id').primaryKey(),
   billNo: varchar('bill_no', { length: 12 }).notNull().unique(),
   patientId: integer('patient_id').notNull().references(() => patients.id),
-  billType: varchar('bill_type', { length: 15 }).notNull(), // DOCTOR_VISIT | DIAGNOSTIC | ADMISSION
+  billType: varchar('bill_type', { length: 15 }).notNull(), // DOCTOR_VISIT | DIAGNOSTIC | ADMISSION | PACKAGE | EMERGENCY | MEDICINE
   discountMode: varchar('discount_mode', { length: 5 }).notNull().default('NONE'), // NONE | BILL | ITEM
   grossAmount: numeric('gross_amount', { precision: 12, scale: 2 }).notNull().default('0'),
+  billDiscountValue: numeric('bill_discount_value', { precision: 12, scale: 2 }).notNull().default('0'),
+  // Kept for existing bills created with percentage discounts.
   discountPercent: numeric('discount_percent', { precision: 5, scale: 2 }).notNull().default('0'),
   discountAmount: numeric('discount_amount', { precision: 12, scale: 2 }).notNull().default('0'),
   netAmount: numeric('net_amount', { precision: 12, scale: 2 }).notNull().default('0'),
@@ -41,6 +43,8 @@ export const billItems = pgTable('bill_items', {
   details: jsonb('details'),
   unitPrice: numeric('unit_price', { precision: 12, scale: 2 }).notNull(),
   quantity: integer('quantity').notNull().default(1),
+  itemDiscountValue: numeric('item_discount_value', { precision: 12, scale: 2 }).notNull().default('0'),
+  // Kept for existing bill items created with percentage discounts.
   itemDiscountPercent: numeric('item_discount_percent', { precision: 5, scale: 2 }).notNull().default('0'),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   discountAmount: numeric('discount_amount', { precision: 12, scale: 2 }).notNull().default('0'),

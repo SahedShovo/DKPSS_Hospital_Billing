@@ -5,7 +5,7 @@ import { DiscountMode } from '../../common/enums/discount-mode.enum';
 export interface BillItemInput {
   unitPrice: string;
   quantity: number;
-  itemDiscountPercent: string;
+  itemDiscountAmount: string;
 }
 
 export interface BillTotals {
@@ -22,34 +22,40 @@ export interface BillTotals {
 export class BillCalculationService {
   validateDiscountMode(
     mode: DiscountMode,
-    billDiscountPercent: string,
+    billDiscountAmount: string,
     items: BillItemInput[],
   ): void {
     const hasItemDiscount = items.some(
-      (i) => !Money.of(i.itemDiscountPercent || '0').equals('0'),
+      (i) => !Money.of(i.itemDiscountAmount || '0').equals('0'),
     );
-    const hasBillDiscount = !Money.of(billDiscountPercent || '0').equals('0');
+    const hasBillDiscount = !Money.of(billDiscountAmount || '0').equals('0');
 
     if (mode === DiscountMode.BILL && hasItemDiscount) {
       throw new BadRequestException(
-        'discount_mode BILL হলে item-wise discount দেওয়া যাবে না',
+        'পুরো বিলের ছাড় দিলে আইটেমভিত্তিক ছাড় দেওয়া যাবে না',
       );
     }
     if (mode === DiscountMode.ITEM && hasBillDiscount) {
       throw new BadRequestException(
-        'discount_mode ITEM হলে bill-wise discount percent 0 হতে হবে',
+        'আইটেমভিত্তিক ছাড় দিলে পুরো বিলের ছাড় 0 হতে হবে',
       );
     }
     if (mode === DiscountMode.NONE && (hasItemDiscount || hasBillDiscount)) {
       throw new BadRequestException(
-        'discount_mode NONE হলে কোনো discount দেওয়া যাবে না',
+        'ছাড়ের ধরন NONE হলে কোনো ছাড় দেওয়া যাবে না',
       );
+    }
+    if (
+      Money.of(billDiscountAmount || '0').isNegative() ||
+      items.some((i) => Money.of(i.itemDiscountAmount || '0').isNegative())
+    ) {
+      throw new BadRequestException('ছাড়ের পরিমাণ ঋণাত্মক হতে পারবে না');
     }
   }
 
   computeTotals(
     mode: DiscountMode,
-    billDiscountPercent: string,
+    billDiscountAmount: string,
     items: BillItemInput[],
   ): BillTotals {
     let gross = Money.of('0');
@@ -58,13 +64,19 @@ export class BillCalculationService {
     for (const item of items) {
       const lineAmount = Money.of(item.unitPrice).multiply(item.quantity);
       gross = gross.add(lineAmount);
-      const lineDiscount = lineAmount.percentOf(item.itemDiscountPercent || '0');
+      const lineDiscount = Money.of(item.itemDiscountAmount || '0');
+      if (lineDiscount.isGreaterThan(lineAmount)) {
+        throw new BadRequestException('আইটেমের ছাড় ওই আইটেমের দামের চেয়ে বেশি হতে পারবে না');
+      }
       itemDiscountTotal = itemDiscountTotal.add(lineDiscount);
     }
 
     let discountAmount = Money.of('0');
     if (mode === DiscountMode.BILL) {
-      discountAmount = gross.percentOf(billDiscountPercent || '0');
+      discountAmount = Money.of(billDiscountAmount || '0');
+      if (discountAmount.isGreaterThan(gross)) {
+        throw new BadRequestException('বিলের ছাড় মোট দামের চেয়ে বেশি হতে পারবে না');
+      }
     } else if (mode === DiscountMode.ITEM) {
       discountAmount = itemDiscountTotal;
     }
