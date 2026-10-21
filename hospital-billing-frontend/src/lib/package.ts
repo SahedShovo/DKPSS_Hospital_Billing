@@ -11,7 +11,7 @@ export const packageApi = {
   findActive: () => api.get<Package[]>('/packages/active'),
   findOne: (id: number) => api.get<Package>(`/packages/${id}`),
   create: (input: CreatePackageInput) => api.post<Package>('/packages', input),
-  update: (id: number, input: { name?: string; packagePrice?: string | null; isActive?: boolean }) =>
+  update: (id: number, input: { name?: string; packagePrice?: string | null; packageDiscountAmount?: string | null; isActive?: boolean }) =>
     api.patch<Package>(`/packages/${id}`, input),
   remove: (id: number) => api.delete<Package>(`/packages/${id}`),
 };

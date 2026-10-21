@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumberString, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
+import { IsString, IsOptional, IsNumberString, IsArray, ValidateNested, ArrayMinSize, Matches } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PackageItemDto } from './package-item.dto';
 
@@ -10,6 +10,11 @@ export class CreatePackageDto {
   @IsOptional()
   @IsNumberString()
   packagePrice?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  @Matches(/^\d+$/, { message: 'প্যাকেজ discount পূর্ণ সংখ্যায় দিতে হবে' })
+  packageDiscountAmount?: string;
 
   @IsArray()
   @ArrayMinSize(1)

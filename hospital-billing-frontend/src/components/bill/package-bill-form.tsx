@@ -28,7 +28,9 @@ export function PackageBillForm({ patientId, onBack }: { patientId: number; onBa
   }, []);
 
   const selected = packages.find((pkg) => String(pkg.id) === packageId);
-  const price = selected?.effectivePrice ?? selected?.packagePrice ?? '0';
+  const basePrice = selected?.basePrice ?? selected?.packagePrice ?? selected?.effectivePrice ?? '0';
+  const discount = selected?.packageDiscountAmount ?? '0';
+  const price = selected?.effectivePrice ?? basePrice;
 
   async function handleSubmit() {
     if (!packageId) {
@@ -58,7 +60,7 @@ export function PackageBillForm({ patientId, onBack }: { patientId: number; onBa
           <Select label="সক্রিয় প্যাকেজ" required value={packageId} onChange={(e) => setPackageId(e.target.value)}>
             <option value="">প্যাকেজ নির্বাচন করুন</option>
             {packages.map((pkg) => (
-              <option key={pkg.id} value={pkg.id}>{pkg.name} — {formatMoneyWithSymbol(pkg.effectivePrice ?? pkg.packagePrice ?? '0')}</option>
+              <option key={pkg.id} value={pkg.id}>{pkg.name} — {formatMoneyWithSymbol(pkg.effectivePrice ?? pkg.basePrice ?? pkg.packagePrice ?? '0')}</option>
             ))}
           </Select>
         ) : <p className="text-sm text-gray-500">কোনো সক্রিয় প্যাকেজ পাওয়া যায়নি।</p>}
@@ -67,7 +69,7 @@ export function PackageBillForm({ patientId, onBack }: { patientId: number; onBa
           <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
             <div className="mb-2 flex items-center justify-between gap-3">
               <h3 className="font-semibold text-slate-900">{selected.name}</h3>
-              <span className="font-semibold text-teal-800">{formatMoneyWithSymbol(price)}</span>
+              <span className="text-sm font-medium text-slate-600">মূল দাম: {formatMoneyWithSymbol(basePrice)}</span>
             </div>
             <p className="mb-2 text-xs text-slate-500">প্যাকেজে অন্তর্ভুক্ত সেবা</p>
             <ul className="divide-y divide-slate-200">
@@ -77,6 +79,14 @@ export function PackageBillForm({ patientId, onBack }: { patientId: number; onBa
                   <span className="shrink-0 text-slate-600">{formatMoneyWithSymbol(item.amount)}</span>
                 </li>
               ))}
+              <li className="flex justify-between gap-3 border-t border-dashed border-slate-300 py-2 text-sm">
+                <span className="font-medium text-rose-700">Discount</span>
+                <span className="shrink-0 font-medium text-rose-700">−{formatMoneyWithSymbol(discount)}</span>
+              </li>
+              <li className="flex justify-between gap-3 border-t border-slate-200 py-3 text-sm font-semibold">
+                <span className="text-slate-900">মোট মূল্য</span>
+                <span className="shrink-0 text-teal-800">{formatMoneyWithSymbol(price)}</span>
+              </li>
             </ul>
           </div>
         )}
@@ -85,9 +95,11 @@ export function PackageBillForm({ patientId, onBack }: { patientId: number; onBa
 
       <Card className="xl:sticky xl:top-4 xl:self-start">
         <h2 className="mb-3 text-sm font-medium text-gray-900">বিলের সারাংশ</h2>
-        <div className="flex justify-between border-t border-gray-200 pt-3 font-semibold">
-          <span>{selected?.name ?? 'প্যাকেজ'}</span>
-          <span>{formatMoneyWithSymbol(price)}</span>
+        <p className="mb-2 text-sm font-medium text-slate-800">{selected?.name ?? 'প্যাকেজ'}</p>
+        <div className="space-y-2 border-t border-gray-200 pt-3 text-sm">
+          <div className="flex justify-between"><span className="text-slate-500">মূল্য</span><span>{formatMoneyWithSymbol(basePrice)}</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Discount</span><span className="text-rose-700">−{formatMoneyWithSymbol(discount)}</span></div>
+          <div className="flex justify-between border-t border-gray-200 pt-2 font-semibold"><span>মোট</span><span>{formatMoneyWithSymbol(price)}</span></div>
         </div>
         {error && <div className="mt-3"><Alert message={error} /></div>}
         <Button className="mt-4 w-full" onClick={handleSubmit} disabled={isSubmitting || isLoading || !selected}>

@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { eq, ilike, inArray, sql } from 'drizzle-orm';
 import { DRIZZLE } from '../../database/drizzle.provider';
 import { billItems, packages, packageItems } from '../../database/schema';
@@ -11,6 +11,19 @@ import { PageQueryDto } from '../../common/dto/page-query.dto';
 export class PackageService {
   constructor(@Inject(DRIZZLE) private db: any) {}
 
+  private withPrice(pkg: any, items: any[]) {
+    const itemTotal = items.reduce((total, item) => total.add(item.amount), Money.of('0'));
+    const basePrice = pkg.packagePrice ? Money.of(pkg.packagePrice) : itemTotal;
+    const discount = Money.of(pkg.packageDiscountAmount ?? '0');
+    return {
+      ...pkg,
+      items,
+      basePrice: basePrice.toDb(),
+      packageDiscountAmount: discount.toDb(),
+      effectivePrice: basePrice.subtract(discount).toDb(),
+    };
+  }
+
   async create(dto: CreatePackageDto, createdBy: number) {
     const [existing] = await this.db
       .select()
@@ -19,11 +32,19 @@ export class PackageService {
       .limit(1);
     if (existing) throw new ConflictException('এই প্যাকেজের নাম আগে থেকেই আছে');
 
+    const itemsTotal = dto.items.reduce((total, item) => total.add(item.amount), Money.of('0'));
+    const basePrice = dto.packagePrice ? Money.of(dto.packagePrice) : itemsTotal;
+    const discount = Money.of(dto.packageDiscountAmount ?? '0');
+    if (basePrice.isNegative() || discount.isNegative() || discount.isGreaterThan(basePrice)) {
+      throw new BadRequestException('প্যাকেজের ছাড় মূল দামের চেয়ে বেশি বা ঋণাত্মক হতে পারবে না');
+    }
+
     const [created] = await this.db
       .insert(packages)
       .values({
         name: dto.name,
         packagePrice: dto.packagePrice ? Money.of(dto.packagePrice).toDb() : null,
+        packageDiscountAmount: discount.toDb(),
         createdBy,
       })
       .returning();
@@ -36,7 +57,7 @@ export class PackageService {
     }));
     const insertedItems = await this.db.insert(packageItems).values(itemRows).returning();
 
-    return { ...created, items: insertedItems };
+    return this.withPrice(created, insertedItems);
   }
 
   async findAll() {
@@ -57,11 +78,7 @@ export class PackageService {
     const itemRows = await this.db.select().from(packageItems).where(inArray(packageItems.packageId, ids));
     const byPackage = new Map<number, any[]>();
     for (const item of itemRows) byPackage.set(item.packageId, [...(byPackage.get(item.packageId) ?? []), item]);
-    const items = rows.map((pkg: any) => {
-      const items = byPackage.get(pkg.id) ?? [];
-      const sum = items.reduce((total, item) => total.add(item.amount), Money.of('0'));
-      return { ...pkg, items, effectivePrice: pkg.packagePrice ?? sum.toDb() };
-    });
+    const items = rows.map((pkg: any) => this.withPrice(pkg, byPackage.get(pkg.id) ?? []));
     return { items, total, page, pageSize };
   }
 
@@ -75,12 +92,7 @@ export class PackageService {
       rows.push(item);
       itemsByPackage.set(item.packageId, rows);
     }
-    return activePackages.map((pkg: typeof activePackages[number]) => {
-      const items = itemsByPackage.get(pkg.id) ?? [];
-      let total = Money.of('0');
-      for (const item of items) total = total.add(item.amount);
-      return { ...pkg, items, effectivePrice: pkg.packagePrice ?? total.toDb() };
-    });
+    return activePackages.map((pkg: typeof activePackages[number]) => this.withPrice(pkg, itemsByPackage.get(pkg.id) ?? []));
   }
 
   async findOne(id: number) {
@@ -92,23 +104,28 @@ export class PackageService {
       .from(packageItems)
       .where(eq(packageItems.packageId, id));
 
-    // package_price না থাকলে item-গুলোর যোগফলই আসল দাম
-    let effectivePrice = pkg.packagePrice;
-    if (!effectivePrice) {
-      let total = Money.of('0');
-      for (const item of items) total = total.add(item.amount);
-      effectivePrice = total.toDb();
-    }
-
-    return { ...pkg, items, effectivePrice };
+    return this.withPrice(pkg, items);
   }
 
   async update(id: number, dto: UpdatePackageDto) {
-    await this.findOne(id);
+    const current = await this.findOne(id);
     const setValue: any = {};
     if (dto.name !== undefined) setValue.name = dto.name;
     if (dto.packagePrice !== undefined) setValue.packagePrice = dto.packagePrice === null ? null : Money.of(dto.packagePrice).toDb();
+    if (dto.packageDiscountAmount !== undefined) setValue.packageDiscountAmount = dto.packageDiscountAmount === null ? '0.00' : Money.of(dto.packageDiscountAmount).toDb();
     if (dto.isActive !== undefined) setValue.isActive = dto.isActive;
+
+    const nextBasePrice = dto.packagePrice === undefined
+      ? Money.of(current.basePrice)
+      : dto.packagePrice === null
+        ? Money.of(current.items.reduce((total: Money, item: any) => total.add(item.amount), Money.of('0')))
+        : Money.of(dto.packagePrice);
+    const nextDiscount = dto.packageDiscountAmount === undefined
+      ? Money.of(current.packageDiscountAmount)
+      : Money.of(dto.packageDiscountAmount ?? '0');
+    if (nextBasePrice.isNegative() || nextDiscount.isNegative() || nextDiscount.isGreaterThan(nextBasePrice)) {
+      throw new BadRequestException('প্যাকেজের ছাড় মূল দামের চেয়ে বেশি বা ঋণাত্মক হতে পারবে না');
+    }
 
     const [updated] = await this.db
       .update(packages)

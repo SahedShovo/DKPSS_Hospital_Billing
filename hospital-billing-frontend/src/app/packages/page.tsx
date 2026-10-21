@@ -26,6 +26,7 @@ export default function PackagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [name, setName] = useState('');
   const [packagePrice, setPackagePrice] = useState('');
+  const [packageDiscountAmount, setPackageDiscountAmount] = useState('0');
   const [items, setItems] = useState<CreatePackageItemInput[]>([
     { itemType: 'DIAGNOSTIC', itemName: '', amount: '' },
   ]);
@@ -33,10 +34,14 @@ export default function PackagesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingPackageId, setEditingPackageId] = useState<number | null>(null);
   const [editingPrice, setEditingPrice] = useState('');
+  const [editingDiscount, setEditingDiscount] = useState('0');
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [packageToDelete, setPackageToDelete] = useState<Package | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const packageItemTotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const packageBasePreview = packagePrice.trim() ? Number(packagePrice) || 0 : packageItemTotal;
+  const packageDiscountPreview = Number(packageDiscountAmount) || 0;
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -85,10 +90,12 @@ export default function PackagesPage() {
       await packageApi.create({
         name,
         packagePrice: packagePrice || undefined,
+        packageDiscountAmount,
         items,
       });
       setName('');
       setPackagePrice('');
+      setPackageDiscountAmount('0');
       setItems([{ itemType: 'DIAGNOSTIC', itemName: '', amount: '' }]);
       await load();
     } catch (err) {
@@ -102,7 +109,10 @@ export default function PackagesPage() {
     setError(null);
     setIsSavingPrice(true);
     try {
-      await packageApi.update(pkg.id, { packagePrice: editingPrice.trim() || null });
+      await packageApi.update(pkg.id, {
+        packagePrice: editingPrice.trim() || null,
+        packageDiscountAmount: editingDiscount.trim() || '0',
+      });
       setEditingPackageId(null);
       await load();
     } catch (err) {
@@ -164,18 +174,19 @@ export default function PackagesPage() {
         </div>
         <Card className="p-4 sm:p-6">
           <form onSubmit={handleCreate} className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input
-                label="প্যাকেজের নাম"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                //placeholder="যেমন: মা ও শিশু স্বাস্থ্য প্যাকেজ"
-                className="min-h-11"
-              />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="md:col-span-1">
+                <Input
+                  label="প্যাকেজের নাম"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="min-h-11"
+                />
+              </div>
               <div>
                 <Input
-                  label="নির্দিষ্ট প্যাকেজ মূল্য (ঐচ্ছিক)"
+                  label="মূল প্যাকেজ মূল্য (ঐচ্ছিক)"
                   type="number"
                   min="0"
                   step="0.01"
@@ -184,7 +195,19 @@ export default function PackagesPage() {
                   placeholder="খালি রাখলে আইটেমের যোগফল"
                   className="min-h-11"
                 />
-                <p className="mt-1.5 text-xs text-slate-500">খালি রাখলে মোট মূল্য আইটেমের দাম থেকে হিসাব হবে।</p>
+                <p className="mt-1.5 text-xs text-slate-500">খালি রাখলে আইটেমের যোগফল মূল মূল্য হবে।</p>
+              </div>
+              <div>
+                <Input
+                  label="এই প্যাকেজের discount (৳)"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={packageDiscountAmount}
+                  onChange={(e) => setPackageDiscountAmount(e.target.value)}
+                  className="min-h-11"
+                />
+                <p className="mt-1.5 text-xs text-slate-500">শুধু এই প্যাকেজে প্রযোজ্য হবে।</p>
               </div>
             </div>
 
@@ -258,6 +281,11 @@ export default function PackagesPage() {
               </button>
             </div>
 
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-teal-100 bg-teal-50/70 px-4 py-3 text-sm">
+              <span className="text-slate-600">মূল্য {formatMoneyWithSymbol(packageBasePreview)} − ছাড় {formatMoneyWithSymbol(packageDiscountPreview)}</span>
+              <span className="font-semibold text-teal-800">ছাড়ের পর {formatMoneyWithSymbol(Math.max(0, packageBasePreview - packageDiscountPreview))}</span>
+            </div>
+
             {error && <Alert message={error} />}
 
             <div className="flex justify-end border-t border-slate-200 pt-4">
@@ -326,9 +354,9 @@ export default function PackagesPage() {
                       প্যাকেজ মুছুন
                     </Button>
                   </div>
-                  <p className="text-xs text-slate-500">{pkg.packagePrice ? 'নির্দিষ্ট প্যাকেজ মূল্য' : 'আইটেমের মোট মূল্য'}</p>
-                  <p className="mt-1 text-2xl font-semibold text-slate-900">
-                    {formatMoneyWithSymbol(pkg.packagePrice ?? pkg.effectivePrice ?? '0')}
+                  <p className="text-xs text-slate-500">{pkg.packagePrice ? 'মূল প্যাকেজ মূল্য' : 'আইটেমের মোট মূল্য'}</p>
+                  <p className="mt-1 text-lg font-medium text-slate-700">
+                    {formatMoneyWithSymbol(pkg.basePrice ?? pkg.packagePrice ?? pkg.effectivePrice ?? '0')}
                   </p>
                   {editingPackageId === pkg.id ? (
                     <div className="mt-3 space-y-2 rounded-md bg-slate-50 p-3">
@@ -341,6 +369,15 @@ export default function PackagesPage() {
                         onChange={(e) => setEditingPrice(e.target.value)}
                         placeholder="খালি রাখলে আইটেমের যোগফল"
                       />
+                      <Input
+                        label="এই প্যাকেজের discount (৳)"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={editingDiscount}
+                        onChange={(e) => setEditingDiscount(e.target.value)}
+                        placeholder="0"
+                      />
                       <div className="flex gap-2">
                         <Button className="px-3 py-1.5 text-xs" onClick={() => savePackagePrice(pkg)} disabled={isSavingPrice}>
                           {isSavingPrice ? 'সংরক্ষণ হচ্ছে...' : 'মূল্য সংরক্ষণ'}
@@ -349,15 +386,15 @@ export default function PackagesPage() {
                           বাতিল
                         </Button>
                       </div>
-                      <p className="text-xs text-slate-500">খালি রেখে সংরক্ষণ করলে আইটেমগুলোর যোগফল প্যাকেজ মূল্য হবে।</p>
+                      <p className="text-xs text-slate-500">শুধু এই প্যাকেজে discount প্রয়োগ হবে; ছাড় মূল দামের বেশি হতে পারবে না।</p>
                     </div>
                   ) : (
                     <button
                       type="button"
-                      onClick={() => { setEditingPackageId(pkg.id); setEditingPrice(pkg.packagePrice ?? ''); }}
+                      onClick={() => { setEditingPackageId(pkg.id); setEditingPrice(pkg.packagePrice ?? ''); setEditingDiscount(pkg.packageDiscountAmount ?? '0'); }}
                       className="mt-2 text-xs font-medium text-teal-700 hover:underline"
                     >
-                      প্যাকেজের মূল্য পরিবর্তন
+                      মূল্য / discount পরিবর্তন
                     </button>
                   )}
                   <div className="mt-4 border-t border-slate-100 pt-3">
@@ -373,6 +410,14 @@ export default function PackagesPage() {
                             <span className="shrink-0 font-medium text-slate-800">{formatMoneyWithSymbol(item.amount)}</span>
                           </li>
                         ))}
+                        <li className="flex items-center justify-between gap-4 border-t border-dashed border-slate-200 py-2 text-sm">
+                          <span className="font-medium text-rose-700">Discount</span>
+                          <span className="shrink-0 font-medium text-rose-700">−{formatMoneyWithSymbol(pkg.packageDiscountAmount ?? '0')}</span>
+                        </li>
+                        <li className="flex items-center justify-between gap-4 border-t border-slate-200 py-3 text-sm font-semibold">
+                          <span className="text-slate-900">মোট মূল্য</span>
+                          <span className="shrink-0 text-teal-800">{formatMoneyWithSymbol(pkg.effectivePrice ?? pkg.basePrice ?? pkg.packagePrice ?? '0')}</span>
+                        </li>
                       </ul>
                     ) : (
                       <p className="py-2 text-sm text-slate-400">কোনো আইটেম নেই</p>

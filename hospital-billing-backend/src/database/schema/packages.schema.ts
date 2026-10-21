@@ -5,6 +5,7 @@ export const packages = pgTable('packages', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 150 }).notNull().unique(),
   packagePrice: numeric('package_price', { precision: 12, scale: 2 }),
+  packageDiscountAmount: numeric('package_discount_amount', { precision: 12, scale: 2 }).notNull().default('0'),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   createdBy: integer('created_by').notNull().references(() => users.id),

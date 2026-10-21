@@ -217,7 +217,13 @@ export class BillService {
     for (const item of items) total = total.add(item.amount);
     // Only the admin-maintained package price is accepted; clients cannot submit a price.
     const packagePrice = pkg.packagePrice ? Money.of(pkg.packagePrice) : total;
+    const packageDiscount = Money.of(pkg.packageDiscountAmount ?? '0');
+    if (packageDiscount.isNegative() || packageDiscount.isGreaterThan(packagePrice)) {
+      throw new BadRequestException('প্যাকেজের ছাড় মূল দামের চেয়ে বেশি বা ঋণাত্মক');
+    }
     const amount = packagePrice.toDb();
+    const discountAmount = packageDiscount.toDb();
+    const netAmount = packagePrice.subtract(packageDiscount).toDb();
     const billNo = await this.generateBillNo(BillType.PACKAGE);
 
     return this.db.transaction(async (tx: any) => {
@@ -225,14 +231,14 @@ export class BillService {
         billNo,
         patientId: dto.patientId,
         billType: BillType.PACKAGE,
-        discountMode: DiscountMode.NONE,
+        discountMode: packageDiscount.equals('0') ? DiscountMode.NONE : DiscountMode.BILL,
         grossAmount: amount,
-        billDiscountValue: '0.00',
+        billDiscountValue: discountAmount,
         discountPercent: '0.00',
-        discountAmount: '0.00',
-        netAmount: amount,
+        discountAmount,
+        netAmount,
         totalPaid: '0.00',
-        dueAmount: amount,
+        dueAmount: netAmount,
         createdBy,
       }).returning();
 

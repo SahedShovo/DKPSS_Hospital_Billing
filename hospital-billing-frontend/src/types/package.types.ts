@@ -19,9 +19,11 @@ export interface Package {
   id: number;
   name: string;
   packagePrice: string | null;
+  packageDiscountAmount: string;
+  basePrice?: string;
   isActive: boolean;
   items?: PackageItem[]; // findAll (list) এ আসে না, শুধু findOne (detail) এ আসে
-  effectivePrice?: string; // শুধু findOne-এ আসে
+  effectivePrice?: string; // discount বাদ দেওয়ার পরের দাম
 }
 
 export interface CreatePackageItemInput {
@@ -33,5 +35,6 @@ export interface CreatePackageItemInput {
 export interface CreatePackageInput {
   name: string;
   packagePrice?: string;
+  packageDiscountAmount?: string;
   items: CreatePackageItemInput[];
 }
