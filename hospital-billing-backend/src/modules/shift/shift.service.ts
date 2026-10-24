@@ -39,7 +39,7 @@ export class ShiftService {
     return shift;
   }
 
-  /** Shift-এর হিসাব: opening + payments + due_payments + refunds(negative) */
+  /** Shift-এর হিসাব: opening + regular payments + due receipts + refunds(negative). */
   async getSummary(shiftId: number, userId: number) {
     const [shift] = await this.db
       .select()
@@ -51,7 +51,7 @@ export class ShiftService {
     const [{ sum: paymentsSum }] = await this.db
       .select({ sum: sql<string>`COALESCE(SUM(${payments.amount}),0)` })
       .from(payments)
-      .where(eq(payments.shiftId, shiftId));
+      .where(and(eq(payments.shiftId, shiftId), sql`${payments.duePaymentId} IS NULL`));
 
     const [{ sum: dueSum }] = await this.db
       .select({ sum: sql<string>`COALESCE(SUM(${duePayments.amount}),0)` })

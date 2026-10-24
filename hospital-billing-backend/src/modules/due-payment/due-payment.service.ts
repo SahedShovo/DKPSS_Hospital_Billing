@@ -1,7 +1,7 @@
 import { Injectable, Inject, BadRequestException, NotFoundException } from '@nestjs/common';
 import { eq, and, sql } from 'drizzle-orm';
 import { DRIZZLE } from '../../database/drizzle.provider';
-import { duePayments, bills, patients, users } from '../../database/schema';
+import { duePayments, bills, payments, patients, users } from '../../database/schema';
 import { Money } from '../../common/utils/money.util';
 import { CreateDuePaymentDto } from './dto/create-due-payment.dto';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -21,16 +21,11 @@ export class DuePaymentService {
       .from(bills)
       .where(and(eq(bills.patientId, patientId), eq(bills.status, 'ACTIVE')));
 
-    const [{ sum: collected }] = await db
-      .select({ sum: sql<string>`COALESCE(SUM(${duePayments.amount}),0)` })
-      .from(duePayments)
-      .where(eq(duePayments.patientId, patientId));
-
-    return Money.of(billDue).subtract(collected);
+    return Money.of(billDue);
   }
 
   async findPatientsWithOutstanding({ page, pageSize }: PageQueryDto) {
-    const [patientRows, billRows, paymentRows] = await Promise.all([
+    const [patientRows, billRows] = await Promise.all([
       this.db
         .select({ id: patients.id, patientCode: patients.patientCode, name: patients.name, phone: patients.phone })
         .from(patients),
@@ -39,17 +34,11 @@ export class DuePaymentService {
         .from(bills)
         .where(eq(bills.status, 'ACTIVE'))
         .groupBy(bills.patientId),
-      this.db
-        .select({ patientId: duePayments.patientId, total: sql<string>`COALESCE(SUM(${duePayments.amount}), 0)` })
-        .from(duePayments)
-        .groupBy(duePayments.patientId),
     ]);
 
     const billDueByPatient = new Map<number, string>(billRows.map((row: any) => [row.patientId, row.total]));
-    const collectedByPatient = new Map<number, string>(paymentRows.map((row: any) => [row.patientId, row.total]));
     const outstandingPatients = patientRows.flatMap((patient: any) => {
-      const outstanding = Money.of(billDueByPatient.get(patient.id) ?? '0')
-        .subtract(collectedByPatient.get(patient.id) ?? '0');
+      const outstanding = Money.of(billDueByPatient.get(patient.id) ?? '0');
       return outstanding.isGreaterThan('0') ? [{ ...patient, outstanding: outstanding.toDb() }] : [];
     }).sort((a: any, b: any) => Money.of(b.outstanding).subtract(a.outstanding).toNumber());
 
@@ -77,7 +66,20 @@ export class DuePaymentService {
         .for('update');
       if (!patient) throw new NotFoundException('রোগী পাওয়া যায়নি');
 
-      const outstanding = await this.getOutstanding(dto.patientId, tx);
+      const unpaidBills = await tx
+        .select()
+        .from(bills)
+        .where(and(
+          eq(bills.patientId, dto.patientId),
+          eq(bills.status, 'ACTIVE'),
+          sql`${bills.dueAmount} > 0`,
+        ))
+        .orderBy(bills.createdAt, bills.id)
+        .for('update');
+      const outstanding = unpaidBills.reduce(
+        (sum: Money, bill: any) => sum.add(bill.dueAmount),
+        Money.of('0'),
+      );
       if (amount.isGreaterThan(outstanding)) {
         throw new BadRequestException(
           `জমা (${dto.amount}) মোট বাকির (${outstanding.toDb()}) চেয়ে বেশি হতে পারবে না`,
@@ -89,16 +91,39 @@ export class DuePaymentService {
         .values({ patientId: dto.patientId, receivedBy, shiftId, amount: amount.toDb() })
         .returning();
 
+      let remaining = amount;
+      const allocations: { billId: number; billNo: string; amount: string }[] = [];
+
+      for (const bill of unpaidBills) {
+        if (!remaining.isGreaterThan('0')) break;
+        const billDue = Money.of(bill.dueAmount);
+        const allocated = remaining.isLessThan(billDue) ? remaining : billDue;
+        const newPaid = Money.of(bill.totalPaid).add(allocated);
+        const newDue = billDue.subtract(allocated);
+        await tx.update(bills)
+          .set({ totalPaid: newPaid.toDb(), dueAmount: newDue.toDb(), updatedAt: new Date() })
+          .where(eq(bills.id, bill.id));
+        await tx.insert(payments).values({
+          billId: bill.id,
+          receivedBy,
+          shiftId,
+          duePaymentId: created.id,
+          amount: allocated.toDb(),
+        });
+        allocations.push({ billId: bill.id, billNo: bill.billNo, amount: allocated.toDb() });
+        remaining = remaining.subtract(allocated);
+      }
+
       await this.auditLog.log({
         dbOrTx: tx,
         userId: receivedBy,
         action: AuditAction.INSERT,
         tableName: 'due_payments',
         recordId: created.id,
-        newValue: created,
+        newValue: { ...created, allocations },
       });
 
-      return created;
+      return { ...created, allocations };
     });
   }
 
@@ -126,6 +151,11 @@ export class DuePaymentService {
       .where(eq(duePayments.id, id))
       .limit(1);
     if (!receipt) throw new NotFoundException('পেমেন্টের রসিদ পাওয়া যায়নি');
-    return receipt;
+    const allocations = await this.db
+      .select({ billId: bills.id, billNo: bills.billNo, amount: payments.amount })
+      .from(payments)
+      .innerJoin(bills, eq(payments.billId, bills.id))
+      .where(eq(payments.duePaymentId, id));
+    return { ...receipt, allocations };
   }
 }

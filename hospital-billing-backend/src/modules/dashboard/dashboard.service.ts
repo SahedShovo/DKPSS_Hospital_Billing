@@ -25,7 +25,11 @@ export class DashboardService {
       this.db
         .select({ cashCollection: sql<string>`COALESCE(SUM(${payments.amount}),0)` })
         .from(payments)
-        .where(and(gte(payments.paidAt, from), lte(payments.paidAt, to))),
+        .where(and(
+          gte(payments.paidAt, from),
+          lte(payments.paidAt, to),
+          sql`${payments.duePaymentId} IS NULL`,
+        )),
       this.db
         .select({ oldDueCollected: sql<string>`COALESCE(SUM(${duePayments.amount}),0)` })
         .from(duePayments)

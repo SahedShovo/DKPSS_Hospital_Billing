@@ -39,8 +39,9 @@ export function DuePaymentModal({ patientId, outstanding, onClose, onSuccess }: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
-        <h2 className="mb-1 text-lg font-semibold text-gray-900">পুরোনো বাকি জমা নিন</h2>
+        <h2 className="mb-1 text-lg font-semibold text-gray-900">বকেয়া বিলের টাকা জমা নিন</h2>
         <p className="mb-4 text-xs text-gray-500">মোট বাকি: {formatMoneyWithSymbol(outstanding)}</p>
+        <p className="mb-3 text-xs text-slate-500">জমার টাকা পুরোনো বকেয়া বিলগুলোতে আগে সমন্বয় হবে।</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input

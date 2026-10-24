@@ -11,6 +11,7 @@ export interface DuePayment {
   patientCode?: string;
   patientPhone?: string;
   receivedByName?: string;
+  allocations?: Array<{ billId: number; billNo: string; amount: string }>;
 }
 
 export const duePaymentApi = {

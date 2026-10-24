@@ -9,6 +9,7 @@ export const payments = pgTable('payments', {
   billId: integer('bill_id').notNull().references(() => bills.id),
   receivedBy: integer('received_by').notNull().references(() => users.id),
   shiftId: integer('shift_id').notNull().references(() => shifts.id),
+  duePaymentId: integer('due_payment_id'),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   paidAt: timestamp('paid_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
