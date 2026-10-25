@@ -5,7 +5,7 @@ import { admissions, bills, billItems, duePayments, payments, refunds, patients,
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { SearchPatientDto } from './dto/search-patient.dto';
-import { formatSequenceCode } from '../../common/utils/code-generator.util';
+import { nextPatientCode } from '../../common/utils/patient-code.util';
 import { PatientPageDto } from './dto/patient-page.dto';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../../common/enums/audit-action.enum';
@@ -15,27 +15,24 @@ export class PatientService {
   constructor(@Inject(DRIZZLE) private db: any, private auditLog: AuditLogService) {}
 
   async create(dto: CreatePatientDto, createdBy: number) {
-    // Deleted patients leave gaps, so use the greatest existing patient code.
-    const [{ lastCode }] = await this.db
-      .select({ lastCode: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${patients.patientCode} FROM 3) AS INTEGER)), 0)` })
-      .from(patients);
-    const patientCode = formatSequenceCode('P', Number(lastCode) + 1);
+    return this.db.transaction(async (tx: any) => {
+      const patientCode = await nextPatientCode(tx);
+      const [created] = await tx
+        .insert(patients)
+        .values({
+          patientCode,
+          name: dto.name,
+          age: dto.age,
+          gender: dto.gender,
+          phone: dto.phone,
+          address: dto.address,
+          refer: dto.refer ?? '',
+          createdBy,
+        })
+        .returning();
 
-    const [created] = await this.db
-      .insert(patients)
-      .values({
-        patientCode,
-        name: dto.name,
-        age: dto.age,
-        gender: dto.gender,
-        phone: dto.phone,
-        address: dto.address,
-        refer: dto.refer ?? '',
-        createdBy,
-      })
-      .returning();
-
-    return created;
+      return created;
+    });
   }
 
   async findAll() {

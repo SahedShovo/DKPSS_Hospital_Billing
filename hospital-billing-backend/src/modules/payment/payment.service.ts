@@ -6,21 +6,24 @@ import { Money } from '../../common/utils/money.util';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../../common/enums/audit-action.enum';
+import { ShiftService } from '../shift/shift.service';
 
 @Injectable()
 export class PaymentService {
   constructor(
     @Inject(DRIZZLE) private db: any,
     private auditLog: AuditLogService,
+    private shiftService: ShiftService,
   ) {}
 
   async create(dto: CreatePaymentDto, receivedBy: number, shiftId: number) {
-    const amount = Money.of(dto.amount);
+    const amount = Money.of(Money.of(dto.amount).toDb());
     if (!amount.isGreaterThan('0')) {
       throw new BadRequestException('Payment-এর পরিমাণ ধনাত্মক হতে হবে');
     }
 
     return this.db.transaction(async (tx: any) => {
+      await this.shiftService.lockOpenShift(tx, shiftId, receivedBy);
       const [bill] = await tx
         .select()
         .from(bills)
@@ -31,9 +34,13 @@ export class PaymentService {
       if (bill.status !== 'ACTIVE') {
         throw new BadRequestException('Cancelled Bill-এ Payment নেওয়া যাবে না');
       }
-      if (amount.isGreaterThan(bill.dueAmount)) {
+      const currentDue = Money.of(bill.netAmount).subtract(bill.totalPaid);
+      if (!currentDue.isGreaterThan('0')) {
+        throw new BadRequestException('এই বিলে আর কোনো বাকি নেই');
+      }
+      if (amount.isGreaterThan(currentDue)) {
         throw new BadRequestException(
-          `Payment (${dto.amount}) Due-এর (${bill.dueAmount}) চেয়ে বেশি হতে পারবে না`,
+          `Payment (${dto.amount}) Due-এর (${currentDue.toDb()}) চেয়ে বেশি হতে পারবে না`,
         );
       }
 
@@ -43,7 +50,7 @@ export class PaymentService {
         .returning();
 
       const newTotalPaid = Money.of(bill.totalPaid).add(amount);
-      const newDue = Money.of(bill.dueAmount).subtract(amount);
+      const newDue = currentDue.subtract(amount);
 
       await tx
         .update(bills)

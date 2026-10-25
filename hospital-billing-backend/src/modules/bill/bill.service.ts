@@ -3,7 +3,7 @@ import { eq, and, sql, gte, lt, inArray, desc } from 'drizzle-orm';
 import { DRIZZLE } from '../../database/drizzle.provider';
 import { bills, billItems, tests, payments, refunds, admissions, duePayments, patients, packages, packageItems } from '../../database/schema';
 import { Money } from '../../common/utils/money.util';
-import { formatSequenceCode, billPrefixFor } from '../../common/utils/code-generator.util';
+import { nextBillNumber } from '../../common/utils/bill-number.util';
 import { BillCalculationService, BillItemInput } from './bill-calculation.service';
 import { CreateDoctorVisitBillDto } from './dto/create-doctor-visit-bill.dto';
 import { CreateDiagnosticBillDto } from './dto/create-diagnostic-bill.dto';
@@ -40,12 +40,10 @@ export class BillService {
     return Money.of(grossAmount).percentOf(bill.discountPercent ?? '0');
   }
 
-  private async generateBillNo(billType: BillType): Promise<string> {
-    const [{ lastNumber }] = await this.db
-      .select({ lastNumber: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${bills.billNo} FROM 3) AS INTEGER)), 0)` })
-      .from(bills)
-      .where(eq(bills.billType, billType));
-    return formatSequenceCode(billPrefixFor(billType), Number(lastNumber) + 1);
+  private calculatedDueAmount(bill: any): string {
+    if (bill.status === BillStatus.CANCELLED) return '0.00';
+    const due = Money.of(bill.netAmount).subtract(bill.totalPaid);
+    return due.isNegative() ? '0.00' : due.toDb();
   }
 
   async createDoctorVisitBill(dto: CreateDoctorVisitBillDto, createdBy: number) {
@@ -60,9 +58,8 @@ export class BillService {
 
     this.calc.validateDiscountMode(mode, billDiscountAmount, calcItems);
     const totals = this.calc.computeTotals(mode, billDiscountAmount, calcItems);
-    const billNo = await this.generateBillNo(BillType.DOCTOR_VISIT);
-
     return this.db.transaction(async (tx: any) => {
+      const billNo = await nextBillNumber(tx, BillType.DOCTOR_VISIT);
       const [bill] = await tx
         .insert(bills)
         .values({
@@ -149,9 +146,8 @@ export class BillService {
 
     this.calc.validateDiscountMode(mode, billDiscountAmount, calcItems);
     const totals = this.calc.computeTotals(mode, billDiscountAmount, calcItems);
-    const billNo = await this.generateBillNo(BillType.DIAGNOSTIC);
-
     return this.db.transaction(async (tx: any) => {
+      const billNo = await nextBillNumber(tx, BillType.DIAGNOSTIC);
       const [bill] = await tx
         .insert(bills)
         .values({
@@ -224,9 +220,8 @@ export class BillService {
     const amount = packagePrice.toDb();
     const discountAmount = packageDiscount.toDb();
     const netAmount = packagePrice.subtract(packageDiscount).toDb();
-    const billNo = await this.generateBillNo(BillType.PACKAGE);
-
     return this.db.transaction(async (tx: any) => {
+      const billNo = await nextBillNumber(tx, BillType.PACKAGE);
       const [bill] = await tx.insert(bills).values({
         billNo,
         patientId: dto.patientId,
@@ -278,9 +273,8 @@ export class BillService {
     }));
     this.calc.validateDiscountMode(mode, billDiscountAmount, calcItems);
     const totals = this.calc.computeTotals(mode, billDiscountAmount, calcItems);
-    const billNo = await this.generateBillNo(billType);
-
     return this.db.transaction(async (tx: any) => {
+      const billNo = await nextBillNumber(tx, billType);
       const [bill] = await tx.insert(bills).values({
         billNo,
         patientId: dto.patientId,
@@ -329,83 +323,95 @@ export class BillService {
       this.db.select().from(refunds).where(eq(refunds.billId, id)),
       this.db.select().from(patients).where(eq(patients.id, bill.patientId)).limit(1),
     ]);
-    return { ...bill, items, payments: billPayments, refunds: billRefunds, patient: patientRows[0] ?? null };
+    return {
+      ...bill,
+      dueAmount: this.calculatedDueAmount(bill),
+      items,
+      payments: billPayments,
+      refunds: billRefunds,
+      patient: patientRows[0] ?? null,
+    };
   }
 
   async findByPatient(patientId: number) {
-    return this.db.select().from(bills).where(eq(bills.patientId, patientId)).orderBy(bills.id);
+    const rows = await this.db.select().from(bills).where(eq(bills.patientId, patientId)).orderBy(bills.id);
+    return rows.map((bill: any) => ({ ...bill, dueAmount: this.calculatedDueAmount(bill) }));
   }
 
   async applyDiscount(id: number, dto: ApplyDiscountDto, updatedBy: number) {
-    const bill = await this.findOne(id);
-    if (bill.billType === BillType.PACKAGE) {
-      throw new BadRequestException('প্যাকেজ বিলের মূল্য অ্যাডমিন নির্ধারণ করেন; এই বিলে discount পরিবর্তন করা যাবে না');
-    }
-    if (bill.status === 'CANCELLED') {
-      throw new BadRequestException('Cancelled Bill-এ discount বদলানো যাবে না');
-    }
+    return this.db.transaction(async (tx: any) => {
+      const [bill] = await tx.select().from(bills).where(eq(bills.id, id)).for('update');
+      if (!bill) throw new NotFoundException('Bill পাওয়া যায়নি');
+      if (bill.billType === BillType.PACKAGE) {
+        throw new BadRequestException('প্যাকেজ বিলের মূল্য অ্যাডমিন নির্ধারণ করেন; এই বিলে discount পরিবর্তন করা যাবে না');
+      }
+      if (bill.status === 'CANCELLED') {
+        throw new BadRequestException('Cancelled Bill-এ discount বদলানো যাবে না');
+      }
 
-    const calcItems: BillItemInput[] = bill.items.map((i: any) => ({
-      unitPrice: i.unitPrice,
-      quantity: i.quantity,
-      itemDiscountAmount: dto.discountMode === DiscountMode.BILL || dto.discountMode === DiscountMode.NONE
-        ? '0'
-        : this.itemDiscountAmount(i).toDb(),
-    }));
+      const items = await tx.select().from(billItems).where(eq(billItems.billId, id));
+      const calcItems: BillItemInput[] = items.map((item: any) => ({
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        itemDiscountAmount: dto.discountMode === DiscountMode.BILL || dto.discountMode === DiscountMode.NONE
+          ? '0'
+          : this.itemDiscountAmount(item).toDb(),
+      }));
 
-    const mode = dto.discountMode;
-    const billDiscountValue = dto.discountAmount ?? '0';
+      const mode = dto.discountMode;
+      const billDiscountValue = dto.discountAmount ?? '0';
+      this.calc.validateDiscountMode(mode, billDiscountValue, calcItems);
+      const totals = this.calc.computeTotals(mode, billDiscountValue, calcItems);
 
-    this.calc.validateDiscountMode(mode, billDiscountValue, calcItems);
-    const totals = this.calc.computeTotals(mode, billDiscountValue, calcItems);
+      const newDue = Money.of(totals.netAmount).subtract(bill.totalPaid);
+      if (newDue.isNegative()) {
+        throw new BadRequestException(
+          'নতুন discount দিলে জমার (total paid) চেয়ে Net Amount কমে যাচ্ছে — আগে এটা সমাধান করুন',
+        );
+      }
 
-    const newDue = Money.of(totals.netAmount).subtract(bill.totalPaid);
-    if (newDue.isNegative()) {
-      throw new BadRequestException(
-        'নতুন discount দিলে জমার (total paid) চেয়ে Net Amount কমে যাচ্ছে — আগে এটা সমাধান করুন',
-      );
-    }
+      const [updated] = await tx
+        .update(bills)
+        .set({
+          discountMode: mode,
+          billDiscountValue: mode === DiscountMode.BILL ? Money.of(billDiscountValue).toDb() : '0.00',
+          discountPercent: '0.00',
+          grossAmount: totals.grossAmount,
+          discountAmount: totals.discountAmount,
+          netAmount: totals.netAmount,
+          dueAmount: newDue.toDb(),
+          updatedAt: new Date(),
+          updatedBy,
+        })
+        .where(eq(bills.id, id))
+        .returning();
 
-    const [updated] = await this.db
-      .update(bills)
-      .set({
-        discountMode: mode,
-        billDiscountValue: mode === DiscountMode.BILL ? Money.of(billDiscountValue).toDb() : '0.00',
-        discountPercent: '0.00',
-        grossAmount: totals.grossAmount,
-        discountAmount: totals.discountAmount,
-        netAmount: totals.netAmount,
-        dueAmount: newDue.toDb(),
-        updatedAt: new Date(),
-        updatedBy,
-      })
-      .where(eq(bills.id, id))
-      .returning();
+      if (mode === DiscountMode.BILL || mode === DiscountMode.NONE) {
+        await tx
+          .update(billItems)
+          .set({ itemDiscountValue: '0.00', itemDiscountPercent: '0.00', discountAmount: '0.00' })
+          .where(eq(billItems.billId, id));
+      }
 
-    if (mode === DiscountMode.BILL || mode === DiscountMode.NONE) {
-      await this.db
-        .update(billItems)
-        .set({ itemDiscountValue: '0.00', itemDiscountPercent: '0.00', discountAmount: '0.00' })
-        .where(eq(billItems.billId, id));
-    }
+      await this.auditLog.log({
+        dbOrTx: tx,
+        userId: updatedBy,
+        action: AuditAction.UPDATE,
+        tableName: 'bills',
+        recordId: id,
+        oldValue: { ...bill, items },
+        newValue: updated,
+      });
 
-    await this.auditLog.log({
-      userId: updatedBy,
-      action: AuditAction.UPDATE,
-      tableName: 'bills',
-      recordId: id,
-      oldValue: bill,
-      newValue: updated,
+      return updated;
     });
-
-    return updated;
   }
 
-  async recalcAndUpdateBillTotals(billId: number) {
-    const [bill] = await this.db.select().from(bills).where(eq(bills.id, billId)).limit(1);
+  async recalcAndUpdateBillTotals(billId: number, db: any = this.db) {
+    const [bill] = await db.select().from(bills).where(eq(bills.id, billId)).for('update');
     if (!bill) throw new NotFoundException('Bill পাওয়া যায়নি');
 
-    const items = await this.db.select().from(billItems).where(eq(billItems.billId, billId));
+    const items = await db.select().from(billItems).where(eq(billItems.billId, billId));
     const calcItems: BillItemInput[] = items.map((i: any) => ({
       unitPrice: i.unitPrice,
       quantity: i.quantity,
@@ -422,7 +428,7 @@ export class BillService {
       );
     }
 
-    const [updated] = await this.db
+    const [updated] = await db
       .update(bills)
       .set({
         grossAmount: totals.grossAmount,
@@ -471,7 +477,8 @@ export class BillService {
   }
 
   async findAll() {
-    return this.db.select().from(bills).orderBy(bills.id);
+    const rows = await this.db.select().from(bills).orderBy(bills.id);
+    return rows.map((bill: any) => ({ ...bill, dueAmount: this.calculatedDueAmount(bill) }));
   }
 
   private getDateBounds(dto: DeleteBillsRangeDto) {
@@ -500,7 +507,12 @@ export class BillService {
       this.db.select().from(bills).where(where).orderBy(desc(bills.createdAt), desc(bills.id)).limit(dto.pageSize).offset((dto.page - 1) * dto.pageSize),
       this.db.select({ count: sql<number>`count(*)` }).from(bills).where(where),
     ]);
-    return { items, total: Number(countRows[0]?.count ?? 0), page: dto.page, pageSize: dto.pageSize };
+    return {
+      items: items.map((bill: any) => ({ ...bill, dueAmount: this.calculatedDueAmount(bill) })),
+      total: Number(countRows[0]?.count ?? 0),
+      page: dto.page,
+      pageSize: dto.pageSize,
+    };
   }
 
   async countByDateRange(dto: DeleteBillsRangeDto) {

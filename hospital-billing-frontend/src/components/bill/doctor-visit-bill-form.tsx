@@ -208,34 +208,34 @@ export function DoctorVisitBillForm({ patientId, onBack }: { patientId: number; 
         </Card>
 
         <Card>
-          <h2 className="mb-3 text-sm font-medium text-gray-900">ছাড় (Discount)</h2>
-          <div className="mb-3 flex gap-2">
-            {(['NONE', 'BILL', 'ITEM'] as DiscountMode[]).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => handleDiscountModeChange(mode)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium ${
-                  discountMode === mode
-                    ? 'bg-blue-600 text-white'
-                    : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {mode === 'NONE' ? 'ছাড় নেই' : mode === 'BILL' ? 'পুরো বিলের নির্দিষ্ট টাকা' : 'আইটেমভিত্তিক টাকা'}
-              </button>
-            ))}
-          </div>
-          {discountMode === 'BILL' && (
-            <div className="max-w-xs">
-              <Input
-                label="ছাড়ের পরিমাণ (৳)"
-                type="number"
-                step="0.01"
-                min="0"
-                value={billDiscountAmount}
-                onChange={(e) => setBillDiscountAmount(e.target.value)}
-              />
+            <h2 className="mb-3 text-sm font-medium text-gray-900">ছাড় (Discount)</h2>
+            <div className="mb-3 flex gap-2">
+              {(['NONE', 'BILL', 'ITEM'] as DiscountMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => handleDiscountModeChange(mode)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+                    discountMode === mode
+                      ? 'bg-blue-600 text-white'
+                      : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {mode === 'NONE' ? 'ছাড় নেই' : mode === 'BILL' ? 'পুরো বিলের নির্দিষ্ট টাকা' : 'আইটেমভিত্তিক টাকা'}
+                </button>
+              ))}
             </div>
-          )}
+            {discountMode === 'BILL' && (
+              <div className="max-w-xs">
+                <Input
+                  label="ছাড়ের পরিমাণ (৳)"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={billDiscountAmount}
+                  onChange={(e) => setBillDiscountAmount(e.target.value)}
+                />
+              </div>
+            )}
         </Card>
       </div>
 

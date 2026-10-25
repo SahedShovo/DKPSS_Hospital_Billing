@@ -7,17 +7,19 @@ import { CreateDuePaymentDto } from './dto/create-due-payment.dto';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../../common/enums/audit-action.enum';
 import { PageQueryDto } from '../../common/dto/page-query.dto';
+import { ShiftService } from '../shift/shift.service';
 
 @Injectable()
 export class DuePaymentService {
   constructor(
     @Inject(DRIZZLE) private db: any,
     private auditLog: AuditLogService,
+    private shiftService: ShiftService,
   ) {}
 
   async getOutstanding(patientId: number, db: any = this.db): Promise<Money> {
     const [{ sum: billDue }] = await db
-      .select({ sum: sql<string>`COALESCE(SUM(${bills.dueAmount}),0)` })
+      .select({ sum: sql<string>`COALESCE(SUM(GREATEST(${bills.netAmount} - ${bills.totalPaid}, 0)), 0)` })
       .from(bills)
       .where(and(eq(bills.patientId, patientId), eq(bills.status, 'ACTIVE')));
 
@@ -30,7 +32,7 @@ export class DuePaymentService {
         .select({ id: patients.id, patientCode: patients.patientCode, name: patients.name, phone: patients.phone })
         .from(patients),
       this.db
-        .select({ patientId: bills.patientId, total: sql<string>`COALESCE(SUM(${bills.dueAmount}), 0)` })
+        .select({ patientId: bills.patientId, total: sql<string>`COALESCE(SUM(GREATEST(${bills.netAmount} - ${bills.totalPaid}, 0)), 0)` })
         .from(bills)
         .where(eq(bills.status, 'ACTIVE'))
         .groupBy(bills.patientId),
@@ -52,12 +54,13 @@ export class DuePaymentService {
   }
 
   async create(dto: CreateDuePaymentDto, receivedBy: number, shiftId: number) {
-    const amount = Money.of(dto.amount);
+    const amount = Money.of(Money.of(dto.amount).toDb());
     if (!amount.isGreaterThan('0')) {
       throw new BadRequestException('জমার পরিমাণ ধনাত্মক হতে হবে');
     }
 
     return this.db.transaction(async (tx: any) => {
+      await this.shiftService.lockOpenShift(tx, shiftId, receivedBy);
       // Serialize due collections for this patient before checking the balance.
       const [patient] = await tx
         .select({ id: patients.id })
@@ -72,12 +75,12 @@ export class DuePaymentService {
         .where(and(
           eq(bills.patientId, dto.patientId),
           eq(bills.status, 'ACTIVE'),
-          sql`${bills.dueAmount} > 0`,
+          sql`${bills.netAmount} > ${bills.totalPaid}`,
         ))
         .orderBy(bills.createdAt, bills.id)
         .for('update');
       const outstanding = unpaidBills.reduce(
-        (sum: Money, bill: any) => sum.add(bill.dueAmount),
+        (sum: Money, bill: any) => sum.add(Money.of(bill.netAmount).subtract(bill.totalPaid)),
         Money.of('0'),
       );
       if (amount.isGreaterThan(outstanding)) {
@@ -96,7 +99,7 @@ export class DuePaymentService {
 
       for (const bill of unpaidBills) {
         if (!remaining.isGreaterThan('0')) break;
-        const billDue = Money.of(bill.dueAmount);
+        const billDue = Money.of(bill.netAmount).subtract(bill.totalPaid);
         const allocated = remaining.isLessThan(billDue) ? remaining : billDue;
         const newPaid = Money.of(bill.totalPaid).add(allocated);
         const newDue = billDue.subtract(allocated);

@@ -85,8 +85,8 @@ export class BillController {
     return this.billService.findOne(id);
   }
 
-    @Patch(':id/discount')
-    applyDiscount(
+  @Patch(':id/discount')
+  applyDiscount(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ApplyDiscountDto,
     @CurrentUser() user: CurrentUserPayload,
@@ -95,6 +95,8 @@ export class BillController {
   }
 
   @Post(':id/cancel')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
   cancel(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: CurrentUserPayload) {
     return this.billService.cancelBill(id, user.id);
   }

@@ -17,4 +17,4 @@ Install dependencies in each application directory with `npm install`. Start the
 
 Before deployment, provision PostgreSQL, configure environment variables on the hosting services, and apply the database schema. Keep credentials and environment files private.
 
-For the fixed-amount discount update, apply `hospital-billing-backend/src/database/migrations/20261019_fixed_discount_amount.sql` to the existing database before deploying the updated API. Historical percentage fields remain in place for older bills.
+For an existing database, apply the SQL migrations in `hospital-billing-backend/src/database/migrations/` in filename order before deploying the updated API. This includes the fixed-discount, package-discount, due-payment allocation, and financial-integrity migrations. The financial-integrity migration links older due-payment receipts to outstanding bills, recalculates cached bill balances from the payment/refund ledger, and adds database safeguards. It will stop without changing data if a user already has multiple open shifts or a patient has multiple active admissions; resolve those duplicate records first.

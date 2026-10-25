@@ -10,7 +10,7 @@ import { DRIZZLE } from '../../database/drizzle.provider';
 import { admissions, bills, billItems, patients } from '../../database/schema';
 import { Money } from '../../common/utils/money.util';
 import { calculateBedBlocks } from '../../common/utils/date.util';
-import { formatSequenceCode, billPrefixFor } from '../../common/utils/code-generator.util';
+import { nextBillNumber } from '../../common/utils/bill-number.util';
 import { BillType } from '../../common/enums/bill-type.enum';
 import { ItemType } from '../../common/enums/item-type.enum';
 import { AdmissionStatus } from '../../common/enums/admission-status.enum';
@@ -28,8 +28,8 @@ export class AdmissionService {
     private auditLog: AuditLogService,
   ) {}
 
-  async getActiveAdmissionForPatient(patientId: number) {
-    const [admission] = await this.db
+  async getActiveAdmissionForPatient(patientId: number, db: any = this.db) {
+    const [admission] = await db
       .select()
       .from(admissions)
       .where(
@@ -40,23 +40,31 @@ export class AdmissionService {
   }
 
   async admitPatient(dto: CreateAdmissionDto, createdBy: number) {
-    const existing = await this.getActiveAdmissionForPatient(dto.patientId);
-    if (existing) {
-      throw new ConflictException('এই রোগী ইতিমধ্যে ভর্তি আছে — নতুন Admission দেওয়া যাবে না');
+    const bedRateValue = Money.of(dto.bedRate);
+    const admissionFeeValue = Money.of(dto.admissionFee);
+    if (bedRateValue.isNegative() || admissionFeeValue.isNegative()) {
+      throw new BadRequestException('ভর্তি ফি ও বেড চার্জ ঋণাত্মক হতে পারবে না');
     }
-
-    const [{ count }] = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(bills)
-      .where(eq(bills.billType, BillType.ADMISSION));
-    const billNo = formatSequenceCode(billPrefixFor(BillType.ADMISSION), Number(count) + 1);
-
     const admitTime = dto.admitTime ? new Date(dto.admitTime) : new Date();
     const bedBlocks = calculateBedBlocks(admitTime, new Date());
-    const bedAmount = Money.of(dto.bedRate).multiply(bedBlocks);
-    const grossAmount = Money.of(dto.admissionFee).add(bedAmount);
+    const bedAmount = bedRateValue.multiply(bedBlocks);
+    const grossAmount = admissionFeeValue.add(bedAmount);
 
     return this.db.transaction(async (tx: any) => {
+      // Lock the patient so concurrent admission requests cannot both pass the check.
+      const [patient] = await tx
+        .select({ id: patients.id })
+        .from(patients)
+        .where(eq(patients.id, dto.patientId))
+        .for('update');
+      if (!patient) throw new NotFoundException('রোগী পাওয়া যায়নি');
+
+      const existing = await this.getActiveAdmissionForPatient(dto.patientId, tx);
+      if (existing) {
+        throw new ConflictException('এই রোগী ইতিমধ্যে ভর্তি আছে — নতুন Admission দেওয়া যাবে না');
+      }
+      const billNo = await nextBillNumber(tx, BillType.ADMISSION);
+
       const [bill] = await tx
         .insert(bills)
         .values({
@@ -132,41 +140,48 @@ export class AdmissionService {
   }
 
   async refreshBedCharge(id: number) {
-    const admission = await this.findOne(id);
-    if (admission.status !== AdmissionStatus.ADMITTED) {
-      throw new BadRequestException('Discharged Admission-এর Bed Charge রিফ্রেশ করা যাবে না');
-    }
-    await this.syncBedItem(admission, new Date());
-    return this.billService.recalcAndUpdateBillTotals(admission.billId);
+    return this.db.transaction(async (tx: any) => {
+      const [admission] = await tx.select().from(admissions).where(eq(admissions.id, id)).for('update');
+      if (!admission) throw new NotFoundException('Admission পাওয়া যায়নি');
+      if (admission.status !== AdmissionStatus.ADMITTED) {
+        throw new BadRequestException('Discharged Admission-এর Bed Charge রিফ্রেশ করা যাবে না');
+      }
+      await tx.select().from(bills).where(eq(bills.id, admission.billId)).for('update');
+      await this.syncBedItem(admission, new Date(), tx);
+      return this.billService.recalcAndUpdateBillTotals(admission.billId, tx);
+    });
   }
 
   async discharge(id: number, dischargedBy: number) {
-    const admission = await this.findOne(id);
-    if (admission.status !== AdmissionStatus.ADMITTED) {
-      throw new BadRequestException('এই রোগী আগেই Discharge হয়েছে');
-    }
+    return this.db.transaction(async (tx: any) => {
+      const [admission] = await tx.select().from(admissions).where(eq(admissions.id, id)).for('update');
+      if (!admission) throw new NotFoundException('Admission পাওয়া যায়নি');
+      if (admission.status !== AdmissionStatus.ADMITTED) {
+        throw new BadRequestException('এই রোগী আগেই Discharge হয়েছে');
+      }
 
-    const dischargeTime = new Date();
-    await this.syncBedItem(admission, dischargeTime);
+      const dischargeTime = new Date();
+      await tx.select().from(bills).where(eq(bills.id, admission.billId)).for('update');
+      await this.syncBedItem(admission, dischargeTime, tx);
+      const [updated] = await tx
+        .update(admissions)
+        .set({ status: AdmissionStatus.DISCHARGED, dischargeTime, dischargedBy })
+        .where(eq(admissions.id, id))
+        .returning();
 
-    const [updated] = await this.db
-      .update(admissions)
-      .set({ status: AdmissionStatus.DISCHARGED, dischargeTime, dischargedBy })
-      .where(eq(admissions.id, id))
-      .returning();
+      const bill = await this.billService.recalcAndUpdateBillTotals(admission.billId, tx);
+      await this.auditLog.log({
+        dbOrTx: tx,
+        userId: dischargedBy,
+        action: AuditAction.UPDATE,
+        tableName: 'admissions',
+        recordId: id,
+        oldValue: admission,
+        newValue: { ...updated, bill },
+      });
 
-    const bill = await this.billService.recalcAndUpdateBillTotals(admission.billId);
-
-    await this.auditLog.log({
-      userId: dischargedBy,
-      action: AuditAction.UPDATE,
-      tableName: 'admissions',
-      recordId: id,
-      oldValue: admission,
-      newValue: { ...updated, bill },
+      return { ...updated, bill };
     });
-
-    return { ...updated, bill };
   }
 
   async findAllActive() {
@@ -207,11 +222,11 @@ export class AdmissionService {
     return { items, total, page, pageSize };
   }
 
-  private async syncBedItem(admission: any, referenceTime: Date) {
+  private async syncBedItem(admission: any, referenceTime: Date, db: any = this.db) {
     const blocks = calculateBedBlocks(new Date(admission.admitTime), referenceTime);
     const bedAmount = Money.of(admission.bedRate).multiply(blocks);
 
-    await this.db
+    await db
       .update(billItems)
       .set({ quantity: blocks, amount: bedAmount.toDb() })
       .where(and(eq(billItems.billId, admission.billId), eq(billItems.itemType, ItemType.BED)));

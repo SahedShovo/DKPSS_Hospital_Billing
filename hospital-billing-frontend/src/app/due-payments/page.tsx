@@ -8,6 +8,7 @@ import { duePaymentApi } from '@/lib/due-payment';
 import { ApiError } from '@/lib/api';
 import { formatMoneyWithSymbol } from '@/lib/money';
 import { Pagination } from '@/components/ui/pagination';
+import { Button } from '@/components/ui/button';
 
 interface PatientDue {
   id: number;
@@ -41,11 +42,27 @@ export default function DuePaymentsPage() {
 
   useEffect(() => {
     load();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+    window.addEventListener('focus', refreshWhenVisible);
+    window.addEventListener('pageshow', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshWhenVisible);
+      window.removeEventListener('pageshow', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, [load]);
 
   return (
     <DashboardShell>
-      <h1 className="mb-5 text-xl font-semibold text-gray-900">পুরোনো বাকি আছে এমন রোগী</h1>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold text-gray-900">পুরোনো বাকি আছে এমন রোগী</h1>
+        <Button type="button" variant="secondary" onClick={() => void load()} disabled={isLoading}>
+          {isLoading ? 'আপডেট হচ্ছে...' : 'তালিকা আপডেট করুন'}
+        </Button>
+      </div>
 
       {error && <div className="mb-4"><Alert message={error} /></div>}
 

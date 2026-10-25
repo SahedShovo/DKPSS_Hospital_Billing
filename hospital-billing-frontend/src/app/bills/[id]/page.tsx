@@ -17,12 +17,14 @@ import { Payment, Refund } from '@/types/payment.types';
 import { ApiError } from '@/lib/api';
 import { formatMoneyWithSymbol } from '@/lib/money';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 type ModalType = 'payment' | 'refund' | 'discount' | 'cancel' | null;
 
 export default function BillDetailPage() {
   const params = useParams();
   const { showToast } = useToast();
+  const { user } = useAuth();
   const billId = Number(params.id);
 
   const [bill, setBill] = useState<Bill | null>(null);
@@ -88,6 +90,7 @@ export default function BillDetailPage() {
   const hasDue = parseFloat(bill.dueAmount) > 0;
   const hasPaid = parseFloat(bill.totalPaid) > 0;
   const canCancel = isActive && !hasPaid; // Backend rule: refund না করলে cancel হবে না
+  const canCancelBill = user?.role === 'ADMIN';
   const billTypeLabel = bill.billType === 'DOCTOR_VISIT'
     ? 'Doctor Visit'
     : bill.billType === 'DIAGNOSTIC'
@@ -138,7 +141,7 @@ export default function BillDetailPage() {
               {isActive && hasDue && <Button onClick={() => setModal('payment')}>পেমেন্ট নিন</Button>}
               {isActive && hasPaid && <Button variant="secondary" onClick={() => setModal('refund')}>রিফান্ড</Button>}
               {isActive && bill.billType !== 'PACKAGE' && <Button variant="secondary" onClick={() => setModal('discount')}>ছাড় পরিবর্তন</Button>}
-              {canCancel && <Button variant="danger" onClick={() => setModal('cancel')}>বিল বাতিল</Button>}
+              {canCancelBill && canCancel && <Button variant="danger" onClick={() => setModal('cancel')}>বিল বাতিল</Button>}
             </div>
           </div>
 
@@ -160,7 +163,7 @@ export default function BillDetailPage() {
         </section>
 
         {actionError && <Alert message={actionError} />}
-        {isActive && hasPaid && !canCancel && (
+        {canCancelBill && isActive && hasPaid && !canCancel && (
           <Alert type="info" message="এই বিলে টাকা জমা আছে। বাতিল করতে হলে আগে পুরো টাকা Refund করতে হবে।" />
         )}
 
@@ -302,7 +305,7 @@ export default function BillDetailPage() {
           onSuccess={() => { showToast('Discount আপডেট হয়েছে'); load(); }}
         />
       )}
-      {modal === 'cancel' && (
+      {canCancelBill && modal === 'cancel' && (
         <ConfirmModal
           title="বিল Cancel করবেন?"
           message={`বিল ${bill.billNo} বাতিল করা হবে। এই কাজ পূর্বাবস্থায় ফেরানো যাবে না।`}

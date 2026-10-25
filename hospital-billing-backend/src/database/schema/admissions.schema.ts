@@ -1,7 +1,8 @@
-import { pgTable, serial, integer, varchar, numeric, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, serial, integer, varchar, numeric, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { patients } from './patients.schema';
 import { bills } from './bills.schema';
 import { users } from './users.schema';
+import { sql } from 'drizzle-orm';
 
 export const admissions = pgTable('admissions', {
   id: serial('id').primaryKey(),
@@ -14,4 +15,8 @@ export const admissions = pgTable('admissions', {
   dischargeTime: timestamp('discharge_time', { withTimezone: true }),
   status: varchar('status', { length: 10 }).notNull().default('ADMITTED'), // ADMITTED | DISCHARGED
   dischargedBy: integer('discharged_by').references(() => users.id),
-});
+}, (table) => ({
+  oneActiveAdmissionPerPatient: uniqueIndex('admissions_one_active_per_patient_idx')
+    .on(table.patientId)
+    .where(sql`${table.status} = 'ADMITTED'`),
+}));

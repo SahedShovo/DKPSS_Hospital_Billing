@@ -6,21 +6,24 @@ import { Money } from '../../common/utils/money.util';
 import { CreateRefundDto } from './dto/create-refund.dto';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditAction } from '../../common/enums/audit-action.enum';
+import { ShiftService } from '../shift/shift.service';
 
 @Injectable()
 export class RefundService {
   constructor(
     @Inject(DRIZZLE) private db: any,
     private auditLog: AuditLogService,
+    private shiftService: ShiftService,
   ) {}
 
   async create(dto: CreateRefundDto, refundedBy: number, shiftId: number) {
-    const amount = Money.of(dto.amount);
+    const amount = Money.of(Money.of(dto.amount).toDb());
     if (!amount.isGreaterThan('0')) {
       throw new BadRequestException('Refund-এর পরিমাণ ধনাত্মক হতে হবে');
     }
 
     return this.db.transaction(async (tx: any) => {
+      await this.shiftService.lockOpenShift(tx, shiftId, refundedBy);
       const [bill] = await tx
         .select()
         .from(bills)
