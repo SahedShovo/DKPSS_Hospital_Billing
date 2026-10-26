@@ -1,4 +1,4 @@
-import { IsInt } from 'class-validator';
+import { IsInt, IsNumberString, IsOptional } from 'class-validator';
 
 export class CreatePackageBillDto {
   @IsInt()
@@ -6,4 +6,8 @@ export class CreatePackageBillDto {
 
   @IsInt()
   packageId!: number;
+
+  @IsOptional()
+  @IsNumberString()
+  additionalDiscountAmount?: string = '0';
 }

@@ -32,6 +32,9 @@ export class PackageService {
       .limit(1);
     if (existing) throw new ConflictException('এই প্যাকেজের নাম আগে থেকেই আছে');
 
+    if (dto.items.some((item) => Money.of(item.amount).isNegative())) {
+      throw new BadRequestException('প্যাকেজ আইটেমের দাম ঋণাত্মক হতে পারবে না');
+    }
     const itemsTotal = dto.items.reduce((total, item) => total.add(item.amount), Money.of('0'));
     const basePrice = dto.packagePrice ? Money.of(dto.packagePrice) : itemsTotal;
     const discount = Money.of(dto.packageDiscountAmount ?? '0');

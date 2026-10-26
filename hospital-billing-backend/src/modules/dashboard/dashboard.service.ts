@@ -9,13 +9,33 @@ import { DateRangeDto } from './dto/date-range.dto';
 export class DashboardService {
   constructor(@Inject(DRIZZLE) private db: any) {}
 
+  private formatDhakaDate(date: Date): string {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Dhaka',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const year = parts.find((part) => part.type === 'year')?.value;
+    const month = parts.find((part) => part.type === 'month')?.value;
+    const day = parts.find((part) => part.type === 'day')?.value;
+    return `${year}-${month}-${day}`;
+  }
+
+  private startOfDhakaDay(date: Date): Date {
+    return new Date(`${this.formatDhakaDate(date)}T00:00:00+06:00`);
+  }
+
   /**
    * Income = Payments + Refunds(negative) + Old Due Collected
    * Profit = Income - Expense
    */
   async getDailySummary(dto: DateRangeDto) {
-    const from = dto.from ? new Date(dto.from) : new Date(new Date().setHours(0, 0, 0, 0));
+    const now = new Date();
+    const from = dto.from ? new Date(dto.from) : this.startOfDhakaDay(now);
     const to = dto.to ? new Date(dto.to) : new Date();
+    const fromExpenseDate = this.formatDhakaDate(from);
+    const toExpenseDate = this.formatDhakaDate(to);
 
     const [billingRows, cashRows, dueRows, refundRows, expenseRows] = await Promise.all([
       this.db
@@ -41,7 +61,7 @@ export class DashboardService {
       this.db
         .select({ expenseTotal: sql<string>`COALESCE(SUM(${expenses.amount}),0)` })
         .from(expenses)
-        .where(and(gte(expenses.createdAt, from), lte(expenses.createdAt, to))),
+        .where(and(gte(expenses.expenseDate, fromExpenseDate), lte(expenses.expenseDate, toExpenseDate))),
     ]);
     const [{ netBilling }] = billingRows;
     const [{ cashCollection }] = cashRows;

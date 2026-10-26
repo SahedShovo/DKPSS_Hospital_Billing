@@ -11,18 +11,32 @@ import { DailySummary } from '@/types/dashboard.types';
 import { ApiError } from '@/lib/api';
 import { formatMoneyWithSymbol } from '@/lib/money';
 
+function dhakaDate(date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Dhaka',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+  return `${year}-${month}-${day}`;
+}
+
 function todayDate(): string {
-  return new Date().toISOString().split('T')[0];
+  return dhakaDate();
 }
 function startOfMonth(): string {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  const [year, month] = todayDate().split('-');
+  return `${year}-${month}-01`;
 }
 function startOfWeek(): string {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff)).toISOString().split('T')[0];
+  const [year, month, day] = todayDate().split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const weekday = date.getUTCDay();
+  date.setUTCDate(date.getUTCDate() - (weekday === 0 ? 6 : weekday - 1));
+  return date.toISOString().split('T')[0];
 }
 
 export default function ReportsPage() {
@@ -38,8 +52,8 @@ export default function ReportsPage() {
     setError(null);
     try {
       const data = await dashboardApi.getDailySummary(
-        `${from}T00:00:00.000Z`,
-        `${to}T23:59:59.999Z`,
+        `${from}T00:00:00.000+06:00`,
+        `${to}T23:59:59.999+06:00`,
       );
       setSummary(data);
     } catch (err) {

@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
-import { eq, and, sql, gte, lt, inArray, desc } from 'drizzle-orm';
+import { eq, and, sql, gte, lt, inArray, desc, notExists } from 'drizzle-orm';
 import { DRIZZLE } from '../../database/drizzle.provider';
 import { bills, billItems, tests, payments, refunds, admissions, duePayments, patients, packages, packageItems } from '../../database/schema';
 import { Money } from '../../common/utils/money.util';
@@ -214,26 +214,28 @@ export class BillService {
     // Only the admin-maintained package price is accepted; clients cannot submit a price.
     const packagePrice = pkg.packagePrice ? Money.of(pkg.packagePrice) : total;
     const packageDiscount = Money.of(pkg.packageDiscountAmount ?? '0');
-    if (packageDiscount.isNegative() || packageDiscount.isGreaterThan(packagePrice)) {
-      throw new BadRequestException('প্যাকেজের ছাড় মূল দামের চেয়ে বেশি বা ঋণাত্মক');
+    const additionalDiscount = Money.of(Money.of(dto.additionalDiscountAmount ?? '0').toDb());
+    const totalDiscount = packageDiscount.add(additionalDiscount);
+    if (packageDiscount.isNegative() || additionalDiscount.isNegative() || totalDiscount.isGreaterThan(packagePrice)) {
+      throw new BadRequestException('প্যাকেজের নির্ধারিত ও অতিরিক্ত ছাড়ের যোগফল মূল দামের বেশি হতে পারবে না');
     }
     const amount = packagePrice.toDb();
-    const discountAmount = packageDiscount.toDb();
-    const netAmount = packagePrice.subtract(packageDiscount).toDb();
+    const discountAmount = totalDiscount.toDb();
+    const finalNetAmount = packagePrice.subtract(totalDiscount).toDb();
     return this.db.transaction(async (tx: any) => {
       const billNo = await nextBillNumber(tx, BillType.PACKAGE);
       const [bill] = await tx.insert(bills).values({
         billNo,
         patientId: dto.patientId,
         billType: BillType.PACKAGE,
-        discountMode: packageDiscount.equals('0') ? DiscountMode.NONE : DiscountMode.BILL,
+        discountMode: totalDiscount.equals('0') ? DiscountMode.NONE : DiscountMode.BILL,
         grossAmount: amount,
         billDiscountValue: discountAmount,
         discountPercent: '0.00',
         discountAmount,
-        netAmount,
+        netAmount: finalNetAmount,
         totalPaid: '0.00',
-        dueAmount: netAmount,
+        dueAmount: finalNetAmount,
         createdBy,
       }).returning();
 
@@ -246,6 +248,10 @@ export class BillService {
         itemDiscountPercent: '0.00',
         amount,
         discountAmount: '0.00',
+        details: {
+          packageDiscountAmount: packageDiscount.toDb(),
+          additionalDiscountAmount: additionalDiscount.toDb(),
+        },
       }).returning();
 
       await this.auditLog.log({
@@ -254,7 +260,14 @@ export class BillService {
         action: AuditAction.INSERT,
         tableName: 'bills',
         recordId: bill.id,
-        newValue: { ...bill, packageId: pkg.id, packageName: pkg.name, items: [billItem] },
+        newValue: {
+          ...bill,
+          packageId: pkg.id,
+          packageName: pkg.name,
+          packageDiscountAmount: packageDiscount.toDb(),
+          additionalDiscountAmount: additionalDiscount.toDb(),
+          items: [billItem],
+        },
       });
       return { ...bill, items: [billItem] };
     });
@@ -441,6 +454,61 @@ export class BillService {
       .returning();
 
     return updated;
+  }
+
+  async deleteOne(id: number, deletedBy: number) {
+    return this.db.transaction(async (tx: any) => {
+      const [bill] = await tx.select().from(bills).where(eq(bills.id, id)).for('update');
+      if (!bill) throw new NotFoundException('Bill পাওয়া যায়নি');
+
+      const [payment] = await tx
+        .select({ id: payments.id })
+        .from(payments)
+        .where(eq(payments.billId, id))
+        .limit(1);
+      const [refund] = await tx
+        .select({ id: refunds.id })
+        .from(refunds)
+        .where(eq(refunds.billId, id))
+        .limit(1);
+      const [admission] = await tx
+        .select({ id: admissions.id })
+        .from(admissions)
+        .where(eq(admissions.billId, id))
+        .limit(1);
+      const [unallocatedDueReceipt] = await tx
+        .select({ id: duePayments.id })
+        .from(duePayments)
+        .where(and(
+          eq(duePayments.patientId, bill.patientId),
+          notExists(
+            tx.select({ id: payments.id })
+              .from(payments)
+              .where(eq(payments.duePaymentId, duePayments.id)),
+          ),
+        ))
+        .limit(1);
+
+      if (payment || refund || admission || unallocatedDueReceipt || !Money.of(bill.totalPaid).equals('0')) {
+        throw new BadRequestException(
+          'এই বিল বা রোগীর হিসাবে পেমেন্ট, রিফান্ড, ভর্তি বা অমিল due receipt আছে—হিসাবের ইতিহাস রাখতে বিল মুছবেন না।',
+        );
+      }
+
+      const items = await tx.select().from(billItems).where(eq(billItems.billId, id));
+      await this.auditLog.log({
+        dbOrTx: tx,
+        userId: deletedBy,
+        action: AuditAction.DELETE,
+        tableName: 'bills',
+        recordId: id,
+        oldValue: { bill, items },
+      });
+      await tx.delete(billItems).where(eq(billItems.billId, id));
+      await tx.delete(bills).where(eq(bills.id, id));
+
+      return { deleted: true, billId: id, billNo: bill.billNo };
+    });
   }
 
   async cancelBill(id: number, cancelledBy: number) {

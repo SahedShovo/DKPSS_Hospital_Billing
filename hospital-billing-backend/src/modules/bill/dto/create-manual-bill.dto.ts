@@ -1,4 +1,4 @@
-import { IsInt, IsEnum, IsNumberString, IsOptional, IsArray, ArrayMinSize, ValidateNested, IsString, MinLength } from 'class-validator';
+import { IsInt, IsEnum, IsNumberString, IsOptional, IsArray, ArrayMinSize, ValidateNested, IsString, MinLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DiscountMode } from '../../../common/enums/discount-mode.enum';
 
@@ -12,6 +12,7 @@ class ManualBillItemDto {
 
   @IsOptional()
   @IsInt()
+  @Min(1)
   quantity?: number = 1;
 
   @IsOptional()

@@ -1,7 +1,7 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { eq, ilike, sql, and, or, inArray } from 'drizzle-orm';
+import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
+import { eq, ilike, sql, and, or } from 'drizzle-orm';
 import { DRIZZLE } from '../../database/drizzle.provider';
-import { admissions, bills, billItems, duePayments, payments, refunds, patients, auditLogs } from '../../database/schema';
+import { admissions, bills, duePayments, patients, auditLogs } from '../../database/schema';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { SearchPatientDto } from './dto/search-patient.dto';
@@ -104,45 +104,24 @@ export class PatientService {
       if (!patient) throw new NotFoundException('রোগী পাওয়া যায়নি');
 
       const patientBills = await tx.select({ id: bills.id }).from(bills).where(eq(bills.patientId, id));
-      const billIds: number[] = patientBills.map((bill: { id: number }) => bill.id);
       const patientAdmissions = await tx.select({ id: admissions.id }).from(admissions).where(eq(admissions.patientId, id));
       const patientDuePayments = await tx.select({ id: duePayments.id }).from(duePayments).where(eq(duePayments.patientId, id));
-      const patientPayments = billIds.length
-        ? await tx.select({ id: payments.id }).from(payments).where(inArray(payments.billId, billIds))
-        : [];
-      const patientRefunds = billIds.length
-        ? await tx.select({ id: refunds.id }).from(refunds).where(inArray(refunds.billId, billIds))
-        : [];
-
-      // Remove audit snapshots containing this patient's data; leave a minimal
-      // deletion event below so the admin action remains traceable.
-      const auditConditions: any[] = [and(eq(auditLogs.tableName, 'patients'), eq(auditLogs.recordId, id))];
-      const addAuditIds = (tableName: string, ids: number[]) => {
-        if (ids.length) auditConditions.push(and(eq(auditLogs.tableName, tableName), inArray(auditLogs.recordId, ids)));
-      };
-      addAuditIds('bills', billIds);
-      addAuditIds('payments', patientPayments.map((row: { id: number }) => row.id));
-      addAuditIds('refunds', patientRefunds.map((row: { id: number }) => row.id));
-      addAuditIds('admissions', patientAdmissions.map((row: { id: number }) => row.id));
-      addAuditIds('due_payments', patientDuePayments.map((row: { id: number }) => row.id));
-      await tx.delete(auditLogs).where(or(...auditConditions));
-
-      if (billIds.length) {
-        await tx.delete(billItems).where(inArray(billItems.billId, billIds));
-        await tx.delete(payments).where(inArray(payments.billId, billIds));
-        await tx.delete(refunds).where(inArray(refunds.billId, billIds));
+      if (patientBills.length || patientAdmissions.length || patientDuePayments.length) {
+        throw new ConflictException(
+          'এই রোগীর বিল, ভর্তি বা পেমেন্টের রেকর্ড আছে—হিসাবের ইতিহাস রাখতে রোগী মুছে ফেলা যাবে না।',
+        );
       }
-      await tx.delete(admissions).where(eq(admissions.patientId, id));
-      await tx.delete(duePayments).where(eq(duePayments.patientId, id));
-      await tx.delete(bills).where(eq(bills.patientId, id));
+
+      // Only an unbilled patient may be hard-deleted; financial history is retained.
+      await tx.delete(auditLogs).where(and(eq(auditLogs.tableName, 'patients'), eq(auditLogs.recordId, id)));
       await tx.delete(patients).where(eq(patients.id, id));
 
       const removed = {
-        bills: billIds.length,
-        admissions: patientAdmissions.length,
-        payments: patientPayments.length,
-        refunds: patientRefunds.length,
-        duePayments: patientDuePayments.length,
+        bills: 0,
+        admissions: 0,
+        payments: 0,
+        refunds: 0,
+        duePayments: 0,
       };
       await this.auditLog.log({
         dbOrTx: tx,

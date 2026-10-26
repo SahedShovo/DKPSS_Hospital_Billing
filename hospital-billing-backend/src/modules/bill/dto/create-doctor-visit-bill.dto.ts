@@ -1,5 +1,5 @@
 import {
-  IsInt, IsEnum, IsNumberString, IsOptional, IsArray, ArrayMinSize, ValidateNested,
+  IsInt, IsEnum, IsNumberString, IsOptional, IsArray, ArrayMinSize, ValidateNested, Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DiscountMode } from '../../../common/enums/discount-mode.enum';
@@ -17,6 +17,7 @@ class DoctorVisitItemDto {
 
   @IsOptional()
   @IsInt()
+  @Min(1)
   quantity?: number = 1;
 
   @IsOptional()

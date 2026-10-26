@@ -16,6 +16,19 @@ export class ExpenseService {
     private auditLog: AuditLogService,
   ) {}
 
+  private dhakaToday(): string {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Dhaka',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const year = parts.find((part) => part.type === 'year')?.value;
+    const month = parts.find((part) => part.type === 'month')?.value;
+    const day = parts.find((part) => part.type === 'day')?.value;
+    return `${year}-${month}-${day}`;
+  }
+
   async create(dto: CreateExpenseDto, enteredBy: number) {
     const amount = Money.of(dto.amount);
     if (!amount.isGreaterThan('0')) {
@@ -52,7 +65,7 @@ export class ExpenseService {
     const [items, [{ total }], [{ todayTotal }]] = await Promise.all([
       this.db.select().from(expenses).orderBy(expenses.id).limit(pageSize).offset((page - 1) * pageSize),
       this.db.select({ total: sql<number>`count(*)::int` }).from(expenses),
-      this.db.select({ todayTotal: sql<string>`COALESCE(SUM(${expenses.amount}), 0)` }).from(expenses).where(sql`${expenses.expenseDate} = CURRENT_DATE`),
+      this.db.select({ todayTotal: sql<string>`COALESCE(SUM(${expenses.amount}), 0)` }).from(expenses).where(eq(expenses.expenseDate, this.dhakaToday())),
     ]);
     return { items, total, page, pageSize, todayTotal };
   }

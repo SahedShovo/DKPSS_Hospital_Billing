@@ -62,7 +62,14 @@ export class BillCalculationService {
     let itemDiscountTotal = Money.of('0');
 
     for (const item of items) {
-      const lineAmount = Money.of(item.unitPrice).multiply(item.quantity);
+      if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+        throw new BadRequestException('প্রতিটি বিল আইটেমের সংখ্যা অন্তত ১ হতে হবে');
+      }
+      const unitPrice = Money.of(item.unitPrice);
+      if (unitPrice.isNegative()) {
+        throw new BadRequestException('বিল আইটেমের দাম ঋণাত্মক হতে পারবে না');
+      }
+      const lineAmount = unitPrice.multiply(item.quantity);
       gross = gross.add(lineAmount);
       const lineDiscount = Money.of(item.itemDiscountAmount || '0');
       if (lineDiscount.isGreaterThan(lineAmount)) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { Card } from '@/components/ui/card';
@@ -19,10 +19,11 @@ import { formatMoneyWithSymbol } from '@/lib/money';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 
-type ModalType = 'payment' | 'refund' | 'discount' | 'cancel' | null;
+type ModalType = 'payment' | 'refund' | 'discount' | 'cancel' | 'delete' | null;
 
 export default function BillDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const { showToast } = useToast();
   const { user } = useAuth();
   const billId = Number(params.id);
@@ -35,6 +36,7 @@ export default function BillDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -70,6 +72,21 @@ export default function BillDetailPage() {
     }
   }
 
+  async function handleDelete() {
+    setActionError(null);
+    setIsDeleting(true);
+    try {
+      await billApi.deleteOne(billId);
+      setModal(null);
+      showToast('বিল মুছে ফেলা হয়েছে');
+      router.push('/bills');
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'বিল মুছতে পারেনি');
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <DashboardShell>
@@ -91,6 +108,11 @@ export default function BillDetailPage() {
   const hasPaid = parseFloat(bill.totalPaid) > 0;
   const canCancel = isActive && !hasPaid; // Backend rule: refund না করলে cancel হবে না
   const canCancelBill = user?.role === 'ADMIN';
+  const canDeleteBill = canCancelBill
+    && bill.billType !== 'ADMISSION'
+    && payments.length === 0
+    && refunds.length === 0
+    && Number(bill.totalPaid) === 0;
   const billTypeLabel = bill.billType === 'DOCTOR_VISIT'
     ? 'Doctor Visit'
     : bill.billType === 'DIAGNOSTIC'
@@ -142,6 +164,7 @@ export default function BillDetailPage() {
               {isActive && hasPaid && <Button variant="secondary" onClick={() => setModal('refund')}>রিফান্ড</Button>}
               {isActive && bill.billType !== 'PACKAGE' && <Button variant="secondary" onClick={() => setModal('discount')}>ছাড় পরিবর্তন</Button>}
               {canCancelBill && canCancel && <Button variant="danger" onClick={() => setModal('cancel')}>বিল বাতিল</Button>}
+              {canDeleteBill && <Button variant="danger" onClick={() => setModal('delete')}>বিল মুছুন</Button>}
             </div>
           </div>
 
@@ -312,6 +335,16 @@ export default function BillDetailPage() {
           confirmLabel="হ্যাঁ, Cancel করুন"
           isSubmitting={isCancelling}
           onConfirm={handleCancel}
+          onCancel={() => setModal(null)}
+        />
+      )}
+      {canDeleteBill && modal === 'delete' && (
+        <ConfirmModal
+          title="বিল স্থায়ীভাবে মুছবেন?"
+          message={`বিল ${bill.billNo} এবং এর আইটেম মুছে যাবে। পেমেন্ট, রিফান্ড বা ভর্তি রেকর্ড থাকলে সিস্টেম মুছতে দেবে না।`}
+          confirmLabel="হ্যাঁ, বিল মুছুন"
+          isSubmitting={isDeleting}
+          onConfirm={handleDelete}
           onCancel={() => setModal(null)}
         />
       )}

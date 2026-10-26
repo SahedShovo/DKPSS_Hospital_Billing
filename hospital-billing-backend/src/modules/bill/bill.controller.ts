@@ -80,6 +80,16 @@ export class BillController {
     return this.billService.deleteByDateRange(dto, user.id);
   }
 
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  deleteOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.billService.deleteOne(id, user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.billService.findOne(id);

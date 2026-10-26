@@ -214,7 +214,7 @@ export default function PatientsPage() {
       {patientToDelete && (
         <ConfirmModal
           title="রোগী মুছে ফেলবেন?"
-          message={`${patientToDelete.name} (${patientToDelete.patientCode}) এবং তার সব বিল, ভর্তি, পেমেন্ট, রিফান্ড ও বকেয়া পরিশোধের রেকর্ড স্থায়ীভাবে মুছে যাবে। এই কাজ ফিরিয়ে আনা যাবে না।`}
+          message={`${patientToDelete.name} (${patientToDelete.patientCode})-এর patient record মুছে যাবে। বিল, ভর্তি বা payment record থাকলে history রক্ষার জন্য system মুছতে দেবে না।`}
           confirmLabel="রোগী মুছুন"
           isSubmitting={isDeleting}
           onConfirm={handleDelete}
