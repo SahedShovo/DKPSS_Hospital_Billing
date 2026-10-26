@@ -400,7 +400,7 @@ export default function BillsPage() {
                     <Link href={`/bills/${bill.id}`} className="text-blue-600 hover:underline">
                       দেখুন
                     </Link>
-                    {user?.role === 'ADMIN' && (
+                    {user?.role === 'ADMIN' && bill.billType !== 'ADMISSION' && (
                       <Button
                         type="button"
                         variant="danger"
