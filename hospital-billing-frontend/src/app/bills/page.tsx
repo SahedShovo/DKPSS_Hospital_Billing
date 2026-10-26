@@ -51,6 +51,8 @@ export default function BillsPage() {
   const [deleteRangeCount, setDeleteRangeCount] = useState<number | null>(null);
   const [confirmDeleteRange, setConfirmDeleteRange] = useState(false);
   const [isDeletingRange, setIsDeletingRange] = useState(false);
+  const [billToDelete, setBillToDelete] = useState<Bill | null>(null);
+  const [isDeletingBill, setIsDeletingBill] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +121,30 @@ export default function BillsPage() {
       setConfirmDeleteRange(false);
     } finally {
       setIsDeletingRange(false);
+    }
+  }
+
+  async function handleDeleteBill() {
+    if (!billToDelete) return;
+
+    setIsDeletingBill(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const deletedBillNo = billToDelete.billNo;
+      await billApi.deleteOne(billToDelete.id);
+      setBillToDelete(null);
+      setNotice(`বিল ${deletedBillNo} মুছে ফেলা হয়েছে। অডিট রেকর্ড সংরক্ষিত আছে।`);
+      if (bills.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+      } else {
+        await load(page);
+      }
+    } catch (err) {
+      setBillToDelete(null);
+      setError(err instanceof ApiError ? err.message : 'বিল মুছে ফেলা যায়নি');
+    } finally {
+      setIsDeletingBill(false);
     }
   }
 
@@ -332,7 +358,7 @@ export default function BillsPage() {
       {notice && <div className="mb-4"><Alert type="success" message={notice} /></div>}
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full min-w-[820px] text-sm">
           <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase text-gray-500">
             <tr>
               <th className="px-4 py-3">Bill No</th>
@@ -372,6 +398,19 @@ export default function BillsPage() {
                     <Link href={`/bills/${bill.id}`} className="text-blue-600 hover:underline">
                       দেখুন
                     </Link>
+                    {user?.role === 'ADMIN' && (
+                      <Button
+                        type="button"
+                        variant="danger"
+                        className="ml-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
+                        disabled={isDeletingBill || isLoading}
+                        onClick={() => { setError(null); setBillToDelete(bill); }}
+                        aria-label={`বিল ${bill.billNo} মুছুন`}
+                      >
+                        <Trash2 size={13} aria-hidden="true" />
+                        মুছুন
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))
@@ -398,6 +437,16 @@ export default function BillsPage() {
           isSubmitting={isDeletingRange}
           onConfirm={handleDeleteDateRange}
           onCancel={() => setConfirmDeleteRange(false)}
+        />
+      )}
+      {billToDelete && (
+        <ConfirmModal
+          title="এই বিলটি স্থায়ীভাবে মুছবেন?"
+          message={`বিল ${billToDelete.billNo} এবং এর আইটেম মুছে যাবে। এই কাজ ফিরিয়ে আনা যাবে না। পেমেন্ট, রিফান্ড, ভর্তি বা রোগীর অমিল বাকি-রসিদ যুক্ত থাকলে সার্ভার বিলটি মুছতে দেবে না।`}
+          confirmLabel="এই বিল মুছুন"
+          isSubmitting={isDeletingBill}
+          onConfirm={handleDeleteBill}
+          onCancel={() => setBillToDelete(null)}
         />
       )}
     </DashboardShell>
