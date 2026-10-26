@@ -132,9 +132,11 @@ export default function BillsPage() {
     setNotice(null);
     try {
       const deletedBillNo = billToDelete.billNo;
-      await billApi.deleteOne(billToDelete.id);
+      const result = await billApi.deleteOne(billToDelete.id);
       setBillToDelete(null);
-      setNotice(`বিল ${deletedBillNo} মুছে ফেলা হয়েছে। অডিট রেকর্ড সংরক্ষিত আছে।`);
+      setNotice(
+        `বিল ${deletedBillNo}, ${result.deletedPaymentCount}টি payment এবং ${result.deletedRefundCount}টি refund record মুছে ফেলা হয়েছে। audit record সংরক্ষিত আছে; shift/Dashboard-এর হিসাব আপডেট হয়েছে।`,
+      );
       if (bills.length === 1 && page > 1) {
         setPage((current) => current - 1);
       } else {
@@ -442,8 +444,8 @@ export default function BillsPage() {
       {billToDelete && (
         <ConfirmModal
           title="এই বিলটি স্থায়ীভাবে মুছবেন?"
-          message={`বিল ${billToDelete.billNo} এবং এর আইটেম মুছে যাবে। এই কাজ ফিরিয়ে আনা যাবে না। পেমেন্ট, রিফান্ড, ভর্তি বা রোগীর অমিল বাকি-রসিদ যুক্ত থাকলে সার্ভার বিলটি মুছতে দেবে না।`}
-          confirmLabel="এই বিল মুছুন"
+          message={`বিল ${billToDelete.billNo}, এর payment/refund এবং এই due receipt-এ এর বরাদ্দ মুছে যাবে। Shift ও Dashboard-এর জমার হিসাব কমবে। কাজটি ফেরানো যাবে না। ভর্তি রেকর্ড বা অমিল due receipt থাকলে সার্ভার মুছবে না।`}
+          confirmLabel="বিল ও payment মুছুন"
           isSubmitting={isDeletingBill}
           onConfirm={handleDeleteBill}
           onCancel={() => setBillToDelete(null)}

@@ -461,21 +461,25 @@ export class BillService {
       const [bill] = await tx.select().from(bills).where(eq(bills.id, id)).for('update');
       if (!bill) throw new NotFoundException('Bill পাওয়া যায়নি');
 
-      const [payment] = await tx
-        .select({ id: payments.id })
+      const paymentRows = await tx
+        .select()
         .from(payments)
         .where(eq(payments.billId, id))
-        .limit(1);
-      const [refund] = await tx
-        .select({ id: refunds.id })
+        .for('update');
+      const refundRows = await tx
+        .select()
         .from(refunds)
         .where(eq(refunds.billId, id))
-        .limit(1);
+        .for('update');
       const [admission] = await tx
         .select({ id: admissions.id })
         .from(admissions)
         .where(eq(admissions.billId, id))
         .limit(1);
+      if (bill.billType === BillType.ADMISSION || admission) {
+        throw new BadRequestException('ভর্তি রেকর্ড যুক্ত বিল মুছবেন না। আগে ভর্তি রেকর্ডটি সঠিকভাবে বন্ধ করতে হবে।');
+      }
+
       const [unallocatedDueReceipt] = await tx
         .select({ id: duePayments.id })
         .from(duePayments)
@@ -489,25 +493,108 @@ export class BillService {
         ))
         .limit(1);
 
-      if (payment || refund || admission || unallocatedDueReceipt || !Money.of(bill.totalPaid).equals('0')) {
+      if (unallocatedDueReceipt) {
         throw new BadRequestException(
-          'এই বিল বা রোগীর হিসাবে পেমেন্ট, রিফান্ড, ভর্তি বা অমিল due receipt আছে—হিসাবের ইতিহাস রাখতে বিল মুছবেন না।',
+          'রোগীর একটি due receipt কোনো বিলে বরাদ্দ করা নেই। হিসাব মিলিয়ে receipt ঠিক করার পর বিল মুছুন।',
         );
       }
 
       const items = await tx.select().from(billItems).where(eq(billItems.billId, id));
+      const paymentTotal = paymentRows.reduce(
+        (sum: Money, payment: any) => sum.add(payment.amount),
+        Money.of('0'),
+      );
+      const refundTotal = refundRows.reduce(
+        (sum: Money, refund: any) => sum.add(refund.amount),
+        Money.of('0'),
+      );
+      if (!paymentTotal.add(refundTotal).equals(bill.totalPaid)) {
+        throw new BadRequestException(
+          'বিলের জমার অঙ্ক payment/refund রেকর্ডের সঙ্গে মিলছে না। হিসাব যাচাই না করে বিল মুছবেন না।',
+        );
+      }
+
+      const duePaymentIds = [...new Set<number>(
+        paymentRows
+          .map((payment: any) => payment.duePaymentId)
+          .filter((duePaymentId: number | null): duePaymentId is number => duePaymentId !== null),
+      )];
+      const dueReceiptAdjustments: { before: any; after: any | null }[] = [];
+
+      for (const duePaymentId of duePaymentIds) {
+        const [receipt] = await tx
+          .select()
+          .from(duePayments)
+          .where(eq(duePayments.id, duePaymentId))
+          .for('update');
+        if (!receipt) {
+          throw new BadRequestException('বিলের payment একটি due receipt-এর সঙ্গে যুক্ত, কিন্তু receipt পাওয়া যায়নি।');
+        }
+
+        const receiptAllocations = await tx
+          .select()
+          .from(payments)
+          .where(eq(payments.duePaymentId, duePaymentId))
+          .for('update');
+        const allocatedTotal = receiptAllocations.reduce(
+          (sum: Money, payment: any) => sum.add(payment.amount),
+          Money.of('0'),
+        );
+        if (!allocatedTotal.equals(receipt.amount)) {
+          throw new BadRequestException(
+            'due receipt-এর মোট অঙ্ক ও bill-এ বরাদ্দ করা অঙ্ক মিলছে না। হিসাব ঠিক না করে বিল মুছবেন না।',
+          );
+        }
+
+        const remainingAllocations = receiptAllocations.filter((payment: any) => payment.billId !== id);
+        const remainingAmount = remainingAllocations.reduce(
+          (sum: Money, payment: any) => sum.add(payment.amount),
+          Money.of('0'),
+        );
+        if (remainingAllocations.length === 0) {
+          await tx.delete(duePayments).where(eq(duePayments.id, duePaymentId));
+          dueReceiptAdjustments.push({ before: receipt, after: null });
+        } else {
+          const [updatedReceipt] = await tx
+            .update(duePayments)
+            .set({ amount: remainingAmount.toDb() })
+            .where(eq(duePayments.id, duePaymentId))
+            .returning();
+          dueReceiptAdjustments.push({ before: receipt, after: updatedReceipt });
+        }
+      }
+
       await this.auditLog.log({
         dbOrTx: tx,
         userId: deletedBy,
         action: AuditAction.DELETE,
         tableName: 'bills',
         recordId: id,
-        oldValue: { bill, items },
+        oldValue: {
+          bill,
+          items,
+          payments: paymentRows,
+          refunds: refundRows,
+          dueReceipts: dueReceiptAdjustments.map(({ before }) => before),
+        },
+        newValue: {
+          dueReceiptAdjustments: dueReceiptAdjustments.map(({ before, after }) => ({ before, after })),
+        },
       });
+
+      await tx.delete(payments).where(eq(payments.billId, id));
+      await tx.delete(refunds).where(eq(refunds.billId, id));
       await tx.delete(billItems).where(eq(billItems.billId, id));
       await tx.delete(bills).where(eq(bills.id, id));
 
-      return { deleted: true, billId: id, billNo: bill.billNo };
+      return {
+        deleted: true,
+        billId: id,
+        billNo: bill.billNo,
+        deletedPaymentCount: paymentRows.length,
+        deletedRefundCount: refundRows.length,
+        adjustedDueReceiptCount: dueReceiptAdjustments.length,
+      };
     });
   }
 

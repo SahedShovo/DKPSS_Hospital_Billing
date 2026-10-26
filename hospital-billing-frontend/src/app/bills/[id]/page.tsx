@@ -76,9 +76,9 @@ export default function BillDetailPage() {
     setActionError(null);
     setIsDeleting(true);
     try {
-      await billApi.deleteOne(billId);
+      const result = await billApi.deleteOne(billId);
       setModal(null);
-      showToast('বিল মুছে ফেলা হয়েছে');
+      showToast(`বিল এবং ${result.deletedPaymentCount}টি payment, ${result.deletedRefundCount}টি refund record মুছে ফেলা হয়েছে`);
       router.push('/bills');
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'বিল মুছতে পারেনি');
@@ -109,10 +109,7 @@ export default function BillDetailPage() {
   const canCancel = isActive && !hasPaid; // Backend rule: refund না করলে cancel হবে না
   const canCancelBill = user?.role === 'ADMIN';
   const canDeleteBill = canCancelBill
-    && bill.billType !== 'ADMISSION'
-    && payments.length === 0
-    && refunds.length === 0
-    && Number(bill.totalPaid) === 0;
+    && bill.billType !== 'ADMISSION';
   const billTypeLabel = bill.billType === 'DOCTOR_VISIT'
     ? 'Doctor Visit'
     : bill.billType === 'DIAGNOSTIC'
@@ -341,8 +338,8 @@ export default function BillDetailPage() {
       {canDeleteBill && modal === 'delete' && (
         <ConfirmModal
           title="বিল স্থায়ীভাবে মুছবেন?"
-          message={`বিল ${bill.billNo} এবং এর আইটেম মুছে যাবে। পেমেন্ট, রিফান্ড বা ভর্তি রেকর্ড থাকলে সিস্টেম মুছতে দেবে না।`}
-          confirmLabel="হ্যাঁ, বিল মুছুন"
+          message={`বিল ${bill.billNo}, এর payment/refund এবং এই due receipt-এ এর বরাদ্দও মুছে যাবে। Shift ও Dashboard-এর জমার হিসাব কমবে। কাজটি ফেরানো যাবে না। ভর্তি রেকর্ড বা অমিল due receipt থাকলে সিস্টেম মুছবে না।`}
+          confirmLabel="বিল ও payment মুছুন"
           isSubmitting={isDeleting}
           onConfirm={handleDelete}
           onCancel={() => setModal(null)}

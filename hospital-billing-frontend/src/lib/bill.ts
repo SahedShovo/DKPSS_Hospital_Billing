@@ -60,7 +60,14 @@ export const billApi = {
   },
   deleteByDateRange: (startDate: string, endDate: string) =>
     api.delete<{ deletedCount: number }>('/bills/date-range', { startDate, endDate }),
-  deleteOne: (id: number) => api.delete<{ deleted: boolean; billId: number; billNo: string }>(`/bills/${id}`),
+  deleteOne: (id: number) => api.delete<{
+    deleted: boolean;
+    billId: number;
+    billNo: string;
+    deletedPaymentCount: number;
+    deletedRefundCount: number;
+    adjustedDueReceiptCount: number;
+  }>(`/bills/${id}`),
   findByPatient: (patientId: number) => api.get<Bill[]>(`/bills/patient/${patientId}`),
   findOne: (id: number) => api.get<Bill>(`/bills/${id}`),
   createDoctorVisit: (input: CreateDoctorVisitBillInput) =>
