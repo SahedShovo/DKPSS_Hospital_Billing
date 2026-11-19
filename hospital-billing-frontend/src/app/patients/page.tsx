@@ -137,7 +137,7 @@ export default function PatientsPage() {
       {error && <div className="mb-4"><Alert message={error} /></div>}
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-160 text-sm">
           <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase text-gray-500">
             <tr>
               <th className="px-4 py-3">Patient Code</th>

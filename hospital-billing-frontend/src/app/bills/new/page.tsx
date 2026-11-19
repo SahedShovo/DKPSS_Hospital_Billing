@@ -73,7 +73,7 @@ function NewBillContent() {
       </div>
 
       {!billType ? (
-        <Card className="!p-0 overflow-hidden">
+        <Card className="p-0! overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
             <h2 className="text-base font-semibold text-slate-900">বিলের ধরন নির্বাচন করুন</h2>
             <p className="mt-1 text-sm text-slate-500">যে ধরনের সেবা বা পণ্যের বিল করবেন সেটি বেছে নিন।</p>

@@ -142,7 +142,7 @@ export default function BillDetailPage() {
         </div>
 
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-900/5">
-          <div className="flex flex-col gap-5 border-b border-slate-100 bg-gradient-to-br from-teal-50 via-white to-slate-50 p-5 sm:p-7 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-5 border-b border-slate-100 bg-linear-to-br from-teal-50 via-white to-slate-50 p-5 sm:p-7 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}`}>
@@ -156,7 +156,7 @@ export default function BillDetailPage() {
               <p className="mt-1 text-xs text-slate-500">রেকর্ড আইডি #{bill.id}</p>
             </div>
 
-            <div className="flex flex-wrap gap-2 lg:max-w-[520px] lg:justify-end">
+            <div className="flex flex-wrap gap-2 lg:max-w-130 lg:justify-end">
               {isActive && hasDue && <Button onClick={() => setModal('payment')}>পেমেন্ট নিন</Button>}
               {isActive && hasPaid && <Button variant="secondary" onClick={() => setModal('refund')}>রিফান্ড</Button>}
               {isActive && bill.billType !== 'PACKAGE' && <Button variant="secondary" onClick={() => setModal('discount')}>ছাড় পরিবর্তন</Button>}
@@ -217,7 +217,7 @@ export default function BillDetailPage() {
           </div>
           {bill.items?.length ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
+              <table className="w-full min-w-160 text-sm">
                 <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-500">
                   <tr>
                     <th className="px-5 py-3 sm:px-6">সেবা / আইটেম</th>

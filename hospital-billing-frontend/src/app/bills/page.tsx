@@ -359,96 +359,106 @@ export default function BillsPage() {
       {error && <div className="mb-4"><Alert message={error} /></div>}
       {notice && <div className="mb-4"><Alert type="success" message={notice} /></div>}
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="w-full min-w-[820px] text-sm">
-          <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase text-gray-500">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="w-full min-w-205 text-sm">
+          <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500">
             <tr>
               <th className="px-4 py-3">Bill No</th>
+              <th className="px-4 py-3">তারিখ</th>
               <th className="px-4 py-3">ধরন</th>
-              <th className="px-4 py-3">মোট</th>
-              <th className="px-4 py-3">জমা</th>
-              <th className="px-4 py-3">বাকি</th>
+              <th className="px-4 py-3 text-right">মোট</th>
+              <th className="px-4 py-3 text-right">জমা</th>
+              <th className="px-4 py-3 text-right">বাকি</th>
               <th className="px-4 py-3">অবস্থা</th>
-              <th className="px-4 py-3"></th>
+              <th className="px-4 py-3 text-right">অ্যাকশন</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-slate-100">
             {isLoading ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">লোড হচ্ছে...</td></tr>
+              <tr>
+                <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">লোড হচ্ছে...</td>
+              </tr>
             ) : bills.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">কোনো বিল নেই</td></tr>
-            ) : (
-              bills.map((bill) => (
-                <tr key={bill.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-600">{bill.billNo}</td>
-                  <td className="px-4 py-3 text-gray-600">{bill.billType}</td>
-                  <td className="px-4 py-3 text-gray-900">{formatMoneyWithSymbol(bill.netAmount)}</td>
-                  <td className="px-4 py-3 text-green-700">{formatMoneyWithSymbol(bill.totalPaid)}</td>
-                  <td className="px-4 py-3 text-red-700">{formatMoneyWithSymbol(bill.dueAmount)}</td>
+              <tr>
+                <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">কোনো বিল পাওয়া যায়নি</td>
+              </tr>
+            ) : bills.map((bill) => {
+              const dueAmount = parseFloat(bill.dueAmount);
+              return (
+                <tr key={bill.id} className="hover:bg-slate-50/70">
+                  <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-900">{bill.billNo}</td>
+                  <td className="px-4 py-3 text-slate-600">{new Date(bill.createdAt).toLocaleDateString('en-GB')}</td>
+                  <td className="px-4 py-3 text-slate-600">{bill.billType}</td>
+                  <td className="px-4 py-3 text-right font-medium text-slate-900">{formatMoneyWithSymbol(bill.netAmount)}</td>
+                  <td className="px-4 py-3 text-right font-medium text-emerald-700">{formatMoneyWithSymbol(bill.totalPaid)}</td>
+                  <td className="px-4 py-3 text-right font-medium text-amber-700">{formatMoneyWithSymbol(bill.dueAmount)}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        bill.status === 'ACTIVE'
-                          ? 'bg-green-50 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${bill.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                       {bill.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link href={`/bills/${bill.id}`} className="text-blue-600 hover:underline">
-                      দেখুন
-                    </Link>
-                    {user?.role === 'ADMIN' && bill.billType !== 'ADMISSION' && (
-                      <Button
-                        type="button"
-                        variant="danger"
-                        className="ml-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
-                        disabled={isDeletingBill || isLoading}
-                        onClick={() => { setError(null); setBillToDelete(bill); }}
-                        aria-label={`বিল ${bill.billNo} মুছুন`}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/bills/${bill.id}`}
+                        className="inline-flex min-h-9 items-center justify-center rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700"
                       >
-                        <Trash2 size={13} aria-hidden="true" />
-                        মুছুন
-                      </Button>
-                    )}
+                        বিস্তারিত
+                      </Link>
+                      {user?.role === 'ADMIN' && bill.status === 'ACTIVE' && dueAmount === 0 && (
+                        <Button
+                          type="button"
+                          variant="danger"
+                          className="min-h-9 px-3 text-xs"
+                          onClick={() => setBillToDelete(bill)}
+                        >
+                          মুছুন
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
-              ))
-            )}
+              );
+            })}
           </tbody>
         </table>
       </div>
+
       {totalBills > pageSize && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
-          <p className="text-sm text-slate-600">
-            {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, totalBills)} / {totalBills} বিল
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <p className="text-xs text-slate-500">
+            মোট {totalBills}টি বিল, পৃষ্ঠা {page}
           </p>
           <div className="flex gap-2">
-            <Button variant="secondary" disabled={isLoading || page <= 1} onClick={() => setPage((current) => current - 1)}>আগের</Button>
-            <Button variant="secondary" disabled={isLoading || page * pageSize >= totalBills} onClick={() => setPage((current) => current + 1)}>পরের</Button>
+            <Button variant="secondary" disabled={page === 1 || isLoading} onClick={() => setPage((current) => current - 1)}>
+              আগের
+            </Button>
+            <Button variant="secondary" disabled={page * pageSize >= totalBills || isLoading} onClick={() => setPage((current) => current + 1)}>
+              পরের
+            </Button>
           </div>
         </div>
       )}
-      {confirmDeleteRange && (
-        <ConfirmModal
-          title="তারিখসীমার সব বিল স্থায়ীভাবে মুছবেন?"
-          message={`${deleteStartDate} থেকে ${deleteEndDate} পর্যন্ত ${deleteRangeCount ?? 0}টি বিল মুছে যাবে। এই কাজ ফিরিয়ে আনা যাবে না। পেমেন্ট, রিফান্ড বা ভর্তি যুক্ত কোনো বিল থাকলে সার্ভার পুরো অপারেশন বাতিল করবে।`}
-          confirmLabel="সব বিল মুছুন"
-          isSubmitting={isDeletingRange}
-          onConfirm={handleDeleteDateRange}
-          onCancel={() => setConfirmDeleteRange(false)}
-        />
-      )}
+
       {billToDelete && (
         <ConfirmModal
-          title="এই বিলটি স্থায়ীভাবে মুছবেন?"
-          message={`বিল ${billToDelete.billNo}, এর payment/refund এবং এই due receipt-এ এর বরাদ্দ মুছে যাবে। Shift ও Dashboard-এর জমার হিসাব কমবে। কাজটি ফেরানো যাবে না। ভর্তি রেকর্ড বা অমিল due receipt থাকলে সার্ভার মুছবে না।`}
-          confirmLabel="বিল ও payment মুছুন"
+          title="বিল স্থায়ীভাবে মুছবেন?"
+          message={`বিল ${billToDelete.billNo}-এর payment/refund এবং due-payment allocations মুছে যাবে। এই কাজ ফিরিয়ে আনা যাবে না।`}
+          confirmLabel="বিল মুছুন"
           isSubmitting={isDeletingBill}
           onConfirm={handleDeleteBill}
           onCancel={() => setBillToDelete(null)}
+        />
+      )}
+
+      {confirmDeleteRange && (
+        <ConfirmModal
+          title="তারিখসীমার সব বিল মুছবেন?"
+          message={`${deleteStartDate} থেকে ${deleteEndDate} তারিখের মুছে ফেলার যোগ্য বিলগুলো স্থায়ীভাবে মুছে ফেলা হবে।`}
+          confirmLabel="বিল মুছুন"
+          isSubmitting={isDeletingRange}
+          onConfirm={handleDeleteDateRange}
+          onCancel={() => setConfirmDeleteRange(false)}
         />
       )}
     </DashboardShell>

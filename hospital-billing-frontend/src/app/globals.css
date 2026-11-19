@@ -6,13 +6,6 @@
   --foreground: #0f172a;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -276,21 +269,66 @@ select {
 
 @media print {
   @page {
-    size: A4;
-    margin: 15mm;
+    size: A5 portrait;
+    margin: 7mm;
   }
+
   body * {
     visibility: hidden;
   }
-  #print-area, #print-area * {
+
+  #print-area,
+  #print-area * {
     visibility: visible;
   }
+
   #print-area {
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%;
+    width: 148mm;
+    min-height: 196mm;
+    max-width: none;
+    margin: 0;
+    padding: 8mm;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    font-size: 9pt;
+    line-height: 1.25;
   }
+
+  #print-area h1 {
+    font-size: 13pt;
+  }
+
+  #print-area h2 {
+    font-size: 11pt;
+  }
+
+  #print-area table {
+    font-size: 8.5pt;
+  }
+
+  #print-area th,
+  #print-area td {
+    padding-top: 2mm;
+    padding-bottom: 2mm;
+  }
+
+  #print-area [class~='mb-6'] {
+    margin-bottom: 4mm;
+  }
+
+  #print-area [class~='mt-16'] {
+    margin-top: 8mm;
+  }
+
+  #print-area [class~='mt-8'] {
+    margin-top: 4mm;
+  }
+
   .no-print {
     display: none !important;
   }
@@ -336,5 +374,4 @@ select {
   .receipt-heading h1 {
     font-size: 12pt;
   }
-
 }

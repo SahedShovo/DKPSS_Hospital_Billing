@@ -65,7 +65,7 @@ export default function BillPrintPage() {
   return (
     <AuthGuard>
       <div className="min-h-screen bg-gray-100 py-8">
-        <div className="no-print mx-auto mb-4 flex max-w-[210mm] justify-end gap-2 px-4">
+        <div className="no-print mx-auto mb-4 flex max-w-[148mm] justify-end gap-2">
           <button
             onClick={() => window.print()}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
@@ -82,9 +82,9 @@ export default function BillPrintPage() {
 
         <div
           id="print-area"
-          className="mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white p-4 text-black shadow-lg sm:p-[15mm]"
+          className="bill-print-invoice mx-auto min-h-[210mm] w-full max-w-[148mm] bg-white p-4 text-black shadow-lg sm:p-[7mm]"
         >
-          <div className="mb-6 flex flex-col items-start justify-between gap-3 border-b-2 border-gray-800 pb-4 sm:flex-row">
+          <div className="mb-4 flex flex-col items-start justify-between gap-2 border-b-2 border-gray-800 pb-3 sm:flex-row">
             <div className="max-w-[65%]">
               <h1 className="text-xl font-bold sm:text-2xl">Dakhin Khan Paribaric Shastha Seba Hospital (Pvt.)</h1>
               <p className="mt-1 text-xs text-gray-700">Address: 2620, Tamizuddin Road, Noapara, Amtola, Dakshinkhan, Dhaka-1230</p>
@@ -99,7 +99,7 @@ export default function BillPrintPage() {
             </div>
           </div>
 
-          <div className="mb-6 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+          <div className="mb-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
             <div>
               <p><span className="font-medium">Patient Name:</span> {patient.name}</p>
               <p><span className="font-medium">Patient Code:</span> {patient.patientCode}</p>
@@ -112,7 +112,7 @@ export default function BillPrintPage() {
             </div>
           </div>
 
-          <table className="mb-6 w-full border-collapse text-sm">
+          <table className="mb-4 w-full border-collapse text-sm">
             <thead>
               <tr className="border-b-2 border-gray-800 text-left">
                 <th className="py-2">Description</th>
@@ -135,7 +135,7 @@ export default function BillPrintPage() {
             </tbody>
           </table>
 
-          <div className="mb-6 flex justify-end">
+          <div className="mb-4 flex justify-end">
             <div className="w-64 space-y-1 text-sm">
               <div className="flex justify-between"><span>Gross Amount</span><span>{formatMoneyWithSymbol(bill.grossAmount)}</span></div>
               <div className="flex justify-between"><span>Discount ({bill.discountMode === 'BILL' ? 'নির্দিষ্ট টাকা' : bill.discountMode})</span><span>- {formatMoneyWithSymbol(bill.discountAmount)}</span></div>
@@ -145,14 +145,14 @@ export default function BillPrintPage() {
             </div>
           </div>
 
-          {lastPaymentDate && <p className="mb-6 text-xs text-gray-500">Last Payment Date: {lastPaymentDate}</p>}
+          {lastPaymentDate && <p className="mb-4 text-xs text-gray-500">Last Payment Date: {lastPaymentDate}</p>}
 
-          <div className="mt-16 flex justify-between text-sm">
+          <div className="mt-10 flex justify-between text-sm">
             <div className="text-center"><div className="mb-1 w-40 border-t border-gray-800"></div><p>Patient / Representative Signature</p></div>
             <div className="text-center"><div className="mb-1 w-40 border-t border-gray-800"></div><p>Authorized Signature</p></div>
           </div>
 
-          <p className="mt-8 text-center text-xs text-gray-400">This is a computer-generated receipt. Thank you.</p>
+          <p className="mt-5 text-center text-xs text-gray-400">This is a computer-generated receipt. Thank you.</p>
         </div>
       </div>
     </AuthGuard>
