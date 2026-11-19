@@ -54,6 +54,10 @@ select {
   background-color: #123a34;
 }
 
+[data-theme='night'] [class~='bg-teal-50/70'] {
+  background-color: #123a34;
+}
+
 [data-theme='night'] [class~='bg-teal-100'],
 [data-theme='night'] [class~='bg-emerald-100'],
 [data-theme='night'] [class~='bg-green-100'] {
@@ -67,6 +71,18 @@ select {
 
 [data-theme='night'] [class~='bg-blue-50'] {
   background-color: #1f3445;
+}
+
+[data-theme='night'] [class~='bg-violet-50'] {
+  background-color: #30263d;
+}
+
+[data-theme='night'] [class~='bg-rose-50'] {
+  background-color: #3b282d;
+}
+
+[data-theme='night'] [class~='bg-amber-50'] {
+  background-color: #342f20;
 }
 
 [data-theme='night'] [class~='text-slate-950'],
@@ -117,6 +133,22 @@ select {
   color: #93c5fd;
 }
 
+[data-theme='night'] [class~='text-blue-700'] {
+  color: #93c5fd;
+}
+
+[data-theme='night'] [class~='text-violet-700'] {
+  color: #c4b5fd;
+}
+
+[data-theme='night'] [class~='text-rose-700'] {
+  color: #f3a4b2;
+}
+
+[data-theme='night'] [class~='text-amber-700'] {
+  color: #f0cf78;
+}
+
 [data-theme='night'] [class~='border-gray-100'],
 [data-theme='night'] [class~='border-gray-200'],
 [data-theme='night'] [class~='border-slate-100'],
@@ -153,6 +185,10 @@ select {
   background-color: #26373a;
 }
 
+[data-theme='night'] [class~='hover:bg-slate-50/70']:hover {
+  background-color: #223437;
+}
+
 [data-theme='night'] [class~='hover:bg-teal-50']:hover,
 [data-theme='night'] [class~='hover:bg-emerald-50']:hover {
   background-color: #1b4a42;
@@ -175,7 +211,7 @@ select {
 }
 
 /* Bill detail surfaces use a few accent shades beyond the shared night palette. */
-[data-theme='night'] .bill-detail-page .bg-gradient-to-br {
+[data-theme='night'] .bill-detail-page [class~='bg-linear-to-br'] {
   background-image: linear-gradient(135deg, #173431 0%, #182528 52%, #1b2a2d 100%);
 }
 
@@ -265,6 +301,27 @@ select {
 
 [data-theme='night'] .receipt-document [class~='bg-teal-50/70'] {
   background-color: #123a34;
+}
+
+[data-theme='night'] .bill-print-invoice {
+  background-color: #fff !important;
+  color: #111827 !important;
+}
+
+[data-theme='night'] .bill-print-invoice [class~='text-gray-700'] {
+  color: #374151;
+}
+
+[data-theme='night'] .bill-print-invoice [class~='text-gray-600'] {
+  color: #4b5563;
+}
+
+[data-theme='night'] .bill-print-invoice [class~='text-gray-500'] {
+  color: #6b7280;
+}
+
+[data-theme='night'] .bill-print-invoice [class~='text-gray-400'] {
+  color: #6b7280;
 }
 
 @media print {
