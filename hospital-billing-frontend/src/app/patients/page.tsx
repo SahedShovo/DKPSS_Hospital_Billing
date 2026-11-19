@@ -11,6 +11,7 @@ import { patientApi } from '@/lib/patient';
 import { Patient } from '@/types/patient.types';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
+import { formatPatientAge } from '@/lib/patient-age';
 
 export default function PatientsPage() {
   const pageSize = 10;
@@ -166,7 +167,7 @@ export default function PatientsPage() {
                 <tr key={patient.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono text-xs text-gray-600">{patient.patientCode}</td>
                   <td className="px-4 py-3 font-medium text-gray-900">{patient.name}</td>
-                  <td className="px-4 py-3 text-gray-600">{patient.age}</td>
+                  <td className="px-4 py-3 text-gray-600">{formatPatientAge(patient.age)}</td>
                   <td className="px-4 py-3 text-gray-600">{patient.gender}</td>
                   <td className="px-4 py-3 text-gray-600">{patient.phone}</td>
                   <td className="px-4 py-3 text-right">

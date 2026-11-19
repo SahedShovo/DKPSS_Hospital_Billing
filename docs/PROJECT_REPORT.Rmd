@@ -1,0 +1,35 @@
+---
+title: "DKPSSHP Hospital Billing System — Project Report"
+subtitle: "বাংলা পূর্ণাঙ্গ project report ও source-code evidence"
+author: "[এখানে আপনার নাম লিখুন]"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+input_file <- knitr::current_input()
+if (is.null(input_file) || !nzchar(input_file)) {
+  input_file <- "PROJECT_REPORT.Rmd"
+}
+input_dir <- dirname(normalizePath(input_file, winslash = "/", mustWork = FALSE))
+report_file <- file.path(input_dir, "PROJECT_REPORT.md")
+if (!file.exists(report_file)) {
+  report_file <- file.path(getwd(), "PROJECT_REPORT.md")
+}
+if (!file.exists(report_file)) {
+  stop("PROJECT_REPORT.md fileটি PROJECT_REPORT.Rmd-এর পাশে রাখুন।")
+}
+```
+
+এই R Markdown document পাশের `PROJECT_REPORT.md` থেকে report content নেয়। RStudio-তে **Knit** চাপলে HTML report তৈরি হবে। `.md` ও `.Rmd` একই folder-এ রাখুন।
+
+```{r render-project-report, results='asis'}
+report_text <- readLines(report_file, warn = FALSE, encoding = "UTF-8")
+cat(report_text, sep = "\n")
+```

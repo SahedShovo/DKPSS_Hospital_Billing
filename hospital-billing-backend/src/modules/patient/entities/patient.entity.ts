@@ -2,7 +2,7 @@ export interface PatientEntity {
   id: number;
   patientCode: string;
   name: string;
-  age: number;
+  age: string;
   gender: string;
   phone: string;
   address: string;

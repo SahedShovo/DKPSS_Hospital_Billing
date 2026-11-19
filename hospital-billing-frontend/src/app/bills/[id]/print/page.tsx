@@ -9,6 +9,7 @@ import { Patient } from '@/types/patient.types';
 import { Payment } from '@/types/payment.types';
 import { ApiError } from '@/lib/api';
 import { formatMoneyWithSymbol } from '@/lib/money';
+import { formatPatientAge } from '@/lib/patient-age';
 
 export default function BillPrintPage() {
   const params = useParams();
@@ -103,7 +104,7 @@ export default function BillPrintPage() {
             <div>
               <p><span className="font-medium">Patient Name:</span> {patient.name}</p>
               <p><span className="font-medium">Patient Code:</span> {patient.patientCode}</p>
-              <p><span className="font-medium">Age / Gender:</span> {patient.age} years, {patient.gender}</p>
+              <p><span className="font-medium">Age / Gender:</span> {formatPatientAge(patient.age, 'en')}, {patient.gender}</p>
             </div>
             <div>
               <p><span className="font-medium">Phone:</span> {patient.phone}</p>

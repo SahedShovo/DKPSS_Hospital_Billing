@@ -5,7 +5,7 @@ export const patients = pgTable('patients', {
   id: serial('id').primaryKey(),
   patientCode: varchar('patient_code', { length: 12 }).notNull().unique(),
   name: varchar('name', { length: 100 }).notNull(),
-  age: integer('age').notNull(),
+  age: varchar('age', { length: 40 }).notNull(),
   gender: varchar('gender', { length: 10 }).notNull(), // MALE | FEMALE | OTHER
   phone: varchar('phone', { length: 20 }).notNull(),
   address: text('address').notNull(),

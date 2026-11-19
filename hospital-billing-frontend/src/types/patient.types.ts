@@ -4,7 +4,7 @@ export interface Patient {
   id: number;
   patientCode: string;
   name: string;
-  age: number;
+  age: string;
   gender: Gender;
   phone: string;
   address: string;
@@ -15,7 +15,7 @@ export interface Patient {
 
 export interface CreatePatientInput {
   name: string;
-  age: number;
+  age: string;
   gender: Gender;
   phone: string;
   address: string;

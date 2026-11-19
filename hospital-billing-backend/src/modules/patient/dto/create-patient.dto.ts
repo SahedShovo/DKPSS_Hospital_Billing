@@ -1,14 +1,16 @@
-import { IsString, IsInt, IsEnum, Min, Max, IsOptional } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsString, IsEnum, IsOptional, IsNotEmpty, MaxLength } from 'class-validator';
 import { Gender } from '../../../common/enums/gender.enum';
 
 export class CreatePatientDto {
   @IsString()
   name!: string;
 
-  @IsInt()
-  @Min(0)
-  @Max(150)
-  age!: number;
+  @Transform(({ value }) => typeof value === 'number' ? String(value) : typeof value === 'string' ? value.trim() : value)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(40)
+  age!: string;
 
   @IsEnum(Gender)
   gender!: Gender;

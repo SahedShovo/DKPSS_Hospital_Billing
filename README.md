@@ -2,6 +2,8 @@
 
 A hospital operations and billing application for managing patients, doctors, diagnostic tests, service packages, admissions, bills, payments, expenses, and audit logs. It includes role-based access, paginated lists, reports, date-based exports, and printable invoices.
 
+বাংলা ব্যবহার নির্দেশিকার জন্য [docs/PROJECT_GUIDE_BN.md](docs/PROJECT_GUIDE_BN.md), পূর্ণাঙ্গ project report-এর জন্য [docs/PROJECT_REPORT.md](docs/PROJECT_REPORT.md), এবং RStudio-তে HTML report তৈরি করতে [docs/PROJECT_REPORT.Rmd](docs/PROJECT_REPORT.Rmd) দেখুন।
+
 ## Project structure
 
 - `hospital-billing-frontend/` — Next.js, React, and TypeScript user interface.
@@ -17,4 +19,4 @@ Install dependencies in each application directory with `npm install`. Start the
 
 Before deployment, provision PostgreSQL, configure environment variables on the hosting services, and apply the database schema. Keep credentials and environment files private.
 
-For an existing database, apply the SQL migrations in `hospital-billing-backend/src/database/migrations/` in filename order before deploying the updated API. This includes the fixed-discount, package-discount, due-payment allocation, and financial-integrity migrations. The financial-integrity migration links older due-payment receipts to outstanding bills, recalculates cached bill balances from the payment/refund ledger, and adds database safeguards. It will stop without changing data if a user already has multiple open shifts or a patient has multiple active admissions; resolve those duplicate records first.
+For an existing database, back it up and apply only migrations that have not already succeeded, in filename order, before deploying the updated API. The financial-integrity migration links older due-payment receipts to outstanding bills, recalculates cached bill balances from the payment/refund ledger, and adds database safeguards. The new `hospital-billing-backend/src/database/migrations/20261119_patient_age_text.sql` migration converts existing numeric ages to text so entries such as `6 month` can be stored; existing ages are preserved. Resolve duplicate open shifts or active admissions before running the financial-integrity migration.

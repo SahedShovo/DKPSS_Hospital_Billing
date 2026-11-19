@@ -7,15 +7,18 @@ import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { Card } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { DuePaymentModal } from '@/components/patient/due-payment-modal';
 import { patientApi } from '@/lib/patient';
 import { billApi } from '@/lib/bill';
 import { duePaymentApi } from '@/lib/due-payment';
 import { DuePayment } from '@/lib/due-payment';
-import { Patient } from '@/types/patient.types';
+import { Gender, Patient } from '@/types/patient.types';
 import { Bill } from '@/types/bill.types';
 import { ApiError } from '@/lib/api';
 import { formatMoneyWithSymbol } from '@/lib/money';
+import { formatPatientAge } from '@/lib/patient-age';
 import { useToast } from '@/hooks/use-toast';
 
 export default function PatientDetailPage() {
@@ -28,6 +31,16 @@ export default function PatientDetailPage() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [outstanding, setOutstanding] = useState<string>('0');
   const [showDueModal, setShowDueModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    age: '',
+    gender: 'OTHER' as Gender,
+    phone: '',
+    address: '',
+    refer: '',
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +91,51 @@ export default function PatientDetailPage() {
     router.push(`/due-payments/receipt/${payment.id}`);
   }
 
+  function startEditing() {
+    if (!patient) return;
+    setEditForm({
+      age: String(patient.age),
+      gender: patient.gender,
+      phone: patient.phone,
+      address: patient.address,
+      refer: patient.refer,
+    });
+    setEditError(null);
+    setIsEditing(true);
+  }
+
+  async function savePatientDetails() {
+    if (!patient) return;
+    const age = editForm.age.trim();
+    if (!age) {
+      setEditError('বয়স লিখুন (যেমন: 25 অথবা 6 month)');
+      return;
+    }
+    if (!editForm.phone.trim() || !editForm.address.trim()) {
+      setEditError('ফোন ও ঠিকানার তথ্য পূরণ করুন');
+      return;
+    }
+
+    setIsSaving(true);
+    setEditError(null);
+    try {
+      const updatedPatient = await patientApi.update(patient.id, {
+        age,
+        gender: editForm.gender,
+        phone: editForm.phone.trim(),
+        address: editForm.address.trim(),
+        refer: editForm.refer.trim(),
+      });
+      setPatient(updatedPatient);
+      setIsEditing(false);
+      showToast('রোগীর তথ্য আপডেট হয়েছে');
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : 'রোগীর তথ্য আপডেট করা যায়নি');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <DashboardShell>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -86,6 +144,25 @@ export default function PatientDetailPage() {
           <p className="font-mono text-xs text-gray-500">{patient.patientCode}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {isEditing ? (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => { setIsEditing(false); setEditError(null); }}
+                disabled={isSaving}
+              >
+                বাতিল
+              </Button>
+              <Button type="button" onClick={savePatientDetails} disabled={isSaving}>
+                {isSaving ? 'সংরক্ষণ হচ্ছে...' : 'সংরক্ষণ করুন'}
+              </Button>
+            </>
+          ) : (
+            <Button type="button" variant="secondary" onClick={startEditing}>
+              তথ্য সম্পাদনা
+            </Button>
+          )}
           <Link href={`/admissions/new?patientId=${patient.id}`}>
             <Button variant="secondary">+ ভর্তি করুন</Button>
           </Link>
@@ -98,13 +175,47 @@ export default function PatientDetailPage() {
       <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <Card>
           <p className="text-xs text-gray-500">বয়স / লিঙ্গ</p>
-          <p className="mt-1 text-lg font-semibold text-gray-900">
-            {patient.age} বছর, {patient.gender}
-          </p>
+          {isEditing ? (
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <Input
+                label="বয়স"
+                type="text"
+                maxLength={40}
+                placeholder="25 অথবা 6 month"
+                required
+                value={editForm.age}
+                onChange={(event) => setEditForm({ ...editForm, age: event.target.value })}
+              />
+              <Select
+                label="লিঙ্গ"
+                value={editForm.gender}
+                onChange={(event) => setEditForm({ ...editForm, gender: event.target.value as Gender })}
+              >
+                <option value="MALE">পুরুষ</option>
+                <option value="FEMALE">নারী</option>
+                <option value="OTHER">অন্যান্য</option>
+              </Select>
+            </div>
+          ) : (
+            <p className="mt-1 text-lg font-semibold text-gray-900">
+              {formatPatientAge(patient.age)}, {patient.gender}
+            </p>
+          )}
         </Card>
         <Card>
           <p className="text-xs text-gray-500">ফোন</p>
-          <p className="mt-1 text-lg font-semibold text-gray-900">{patient.phone}</p>
+          {isEditing ? (
+            <Input
+              className="mt-3"
+              aria-label="ফোন নম্বর"
+              type="tel"
+              required
+              value={editForm.phone}
+              onChange={(event) => setEditForm({ ...editForm, phone: event.target.value })}
+            />
+          ) : (
+            <p className="mt-1 text-lg font-semibold text-gray-900">{patient.phone}</p>
+          )}
         </Card>
         <Card className={hasOutstanding ? 'border-red-200 bg-red-50' : ''}>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -125,13 +236,37 @@ export default function PatientDetailPage() {
 
       <Card className="mb-5">
         <h2 className="mb-2 text-sm font-medium text-gray-900">ঠিকানা ও রেফার</h2>
-        <p className="text-sm text-gray-600">{patient.address}</p>
-        {patient.refer && <p className="mt-1 text-sm text-gray-500">রেফার: {patient.refer}</p>}
+        {isEditing ? (
+          <div className="space-y-3">
+            <div>
+              <label htmlFor="patient-address" className="mb-1 block text-sm font-medium text-gray-700">ঠিকানা</label>
+              <textarea
+                id="patient-address"
+                required
+                rows={3}
+                value={editForm.address}
+                onChange={(event) => setEditForm({ ...editForm, address: event.target.value })}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+              />
+            </div>
+            <Input
+              label="রেফার"
+              value={editForm.refer}
+              onChange={(event) => setEditForm({ ...editForm, refer: event.target.value })}
+            />
+            {editError && <Alert message={editError} />}
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-gray-600">{patient.address}</p>
+            {patient.refer && <p className="mt-1 text-sm text-gray-500">রেফার: {patient.refer}</p>}
+          </>
+        )}
       </Card>
 
       <h2 className="mb-3 text-sm font-medium text-gray-900">বিলের তালিকা</h2>
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-160 text-sm">
           <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase text-gray-500">
             <tr>
               <th className="px-4 py-3">Bill No</th>

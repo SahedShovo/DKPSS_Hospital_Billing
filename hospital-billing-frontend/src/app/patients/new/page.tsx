@@ -28,11 +28,16 @@ export default function NewPatientPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const age = form.age.trim();
+    if (!age) {
+      setError('বয়স লিখুন (যেমন: 25 অথবা 6 month)');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const patient = await patientApi.create({
         name: form.name,
-        age: parseInt(form.age, 10),
+        age,
         gender: form.gender,
         phone: form.phone,
         address: form.address,
@@ -62,9 +67,9 @@ export default function NewPatientPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="বয়স"
-              type="number"
-              min="0"
-              max="150"
+              type="text"
+              maxLength={40}
+              placeholder=""
               required
               value={form.age}
               onChange={(e) => setForm({ ...form, age: e.target.value })}

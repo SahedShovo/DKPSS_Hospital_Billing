@@ -41,7 +41,7 @@ export interface BillPatient {
   id: number;
   patientCode: string;
   name: string;
-  age: number;
+  age: string;
   gender: Gender;
   phone: string;
   address: string;
