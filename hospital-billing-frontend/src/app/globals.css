@@ -517,7 +517,7 @@ select {
   .receipt-signatures {
     flex: 0 0 auto;
     gap: 8mm;
-    margin-top: 5mm;
+    margin-top: 15mm;
     font-size: 7pt;
     line-height: 1.1;
   }
