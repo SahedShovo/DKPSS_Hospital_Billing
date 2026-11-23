@@ -390,45 +390,147 @@ select {
     display: none !important;
   }
 
-  @page receipt-two-up {
-    size: A4 portrait;
+  @page receipt-a5 {
+    size: A5 portrait;
     margin: 7mm;
   }
 
   .receipt-document {
-    page: receipt-two-up;
-    width: 100%;
+    page: receipt-a5;
     max-width: none;
+    overflow: visible !important;
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     font-size: 9pt;
   }
 
+  #print-area.receipt-document {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 134mm;
+    height: 196mm;
+    min-height: 196mm;
+    margin: 0;
+    padding: 0;
+  }
+
   .receipt-copy {
     position: relative;
+    display: flex;
+    flex-direction: column;
     box-sizing: border-box;
-    height: calc((297mm - 14mm) / 2);
+    width: 134mm;
+    height: 98mm;
+    min-height: 98mm;
+    break-after: avoid-page;
+    page-break-after: avoid;
     overflow: hidden;
-    padding: 4mm 6mm;
+    padding: 6mm 7mm;
+    text-align: center;
   }
 
   .receipt-copy:first-child {
-    border-bottom: 1px dashed #64748b;
+    border-bottom: 0.3mm dashed #64748b;
+  }
+
+  .receipt-copy:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 
   .receipt-copy:first-child::after {
     position: absolute;
-    right: 0;
-    bottom: -1px;
+    z-index: 1;
+    bottom: 0;
+    left: 50%;
     padding: 0 2mm;
+    transform: translateX(-50%);
     background: white;
     color: #64748b;
-    content: '✂ কাটার রেখা';
-    font-size: 7pt;
+    content: '✂ CUT HERE';
+    font-size: 6pt;
+    line-height: 3mm;
   }
 
-  .receipt-heading h1 {
-    font-size: 12pt;
+  #print-area.receipt-document .receipt-heading {
+    flex: 0 0 auto;
+    padding-bottom: 1mm;
+  }
+
+  #print-area.receipt-document .receipt-heading h1 {
+    font-size: 9pt;
+    line-height: 1.15;
+  }
+
+  #print-area.receipt-document .receipt-heading p {
+    margin-top: 0.6mm;
+    font-size: 7pt;
+    line-height: 1.15;
+  }
+
+  .receipt-title {
+    margin-top: 1.5mm;
+  }
+
+  #print-area.receipt-document .receipt-title h2 {
+    font-size: 9pt;
+    line-height: 1.15;
+  }
+
+  .receipt-title span {
+    font-size: 7pt;
+    line-height: 1.2;
+  }
+
+  .receipt-meta {
+    flex: 0 0 auto;
+    margin-top: 1.5mm;
+    padding-top: 1mm;
+    padding-bottom: 1mm;
+    font-size: 7pt;
+    line-height: 1.15;
+  }
+
+  .receipt-payment {
+    flex: 0 0 auto;
+    margin-top: 1.5mm;
+    line-height: 1.15;
+  }
+
+  #print-area.receipt-document .receipt-total {
+    margin-top: 0.5mm;
+    font-size: 10pt;
+  }
+
+  .receipt-allocations {
+    margin-top: 1mm;
+    line-height: 1.15;
+  }
+
+  .receipt-allocations p {
+    font-size: 7pt;
+    line-height: 1.15;
+  }
+
+  .receipt-signatures {
+    flex: 0 0 auto;
+    gap: 8mm;
+    margin-top: 5mm;
+    font-size: 7pt;
+    line-height: 1.1;
+  }
+
+  .receipt-signatures > div {
+    width: 38mm;
+  }
+
+  .receipt-footer {
+    flex: 0 0 auto;
+    margin-top: auto;
+    padding-top: 2mm;
+    font-size: 6.5pt;
+    line-height: 1.1;
   }
 }
